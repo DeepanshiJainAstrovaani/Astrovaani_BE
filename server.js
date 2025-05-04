@@ -7,6 +7,7 @@ const contactRoutes = require('./routes/contactRoutes');
 const vendorRoutes = require('./routes/vendorRoutes');
 const horoscopeRoutes = require('./routes/horoscopeRoutes');
 const blogRoutes = require('./routes/blogRoutes');
+const authRoutes = require('./routes/authRoutes');
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -20,6 +21,7 @@ app.use('/api/contacts', contactRoutes);
 app.use('/api/vendors', vendorRoutes);
 app.use('/api/horoscope', horoscopeRoutes);
 app.use('/api/blogs', blogRoutes);
+app.use('/api/auth', authRoutes);
 
 // Start the server
 app.listen(port, () => {

@@ -9,8 +9,9 @@ services:
       - key: NODE_VERSION
         value: 20.18.0
       - key: MONGODB_URI
-        sync: false
+        value: mongodb+srv://testuser:test1122@testastro.yb6oqe6.mongodb.net/astro
       - key: PORT
         value: 5000
       - key: NODE_ENV
         value: production
+    healthCheckPath: /api/

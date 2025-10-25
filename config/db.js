@@ -4,6 +4,11 @@ require('dotenv').config();
 // MongoDB connection string
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/astrovaani';
 
+// Log configuration (but hide password)
+console.log('🔧 MongoDB Configuration:');
+console.log(`   URI: ${MONGODB_URI.replace(/:[^:@]+@/, ':***@')}`);
+console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
+
 // Connection options
 const options = {
   useNewUrlParser: true,
@@ -15,11 +20,17 @@ const options = {
 // Connect to MongoDB
 const connectDB = async () => {
   try {
+    if (!process.env.MONGODB_URI) {
+      console.warn('⚠️  WARNING: MONGODB_URI environment variable is not set!');
+      console.warn('   Using default: mongodb://localhost:27017/astrovaani');
+    }
+    
     await mongoose.connect(MONGODB_URI, options);
     console.log('✅ Connected to MongoDB database');
     console.log(`📊 Database: ${mongoose.connection.name}`);
   } catch (err) {
     console.error('❌ MongoDB connection error:', err.message);
+    console.error('   Full error:', err);
     process.exit(1);
   }
 };

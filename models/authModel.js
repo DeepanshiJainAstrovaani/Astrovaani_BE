@@ -81,7 +81,8 @@ exports.verifyWhatsAppOTP = async (mobile, otp) => {
         return {
             success: true,
             user: { 
-                id: user._id,
+                _id: user._id.toString(),
+                id: user._id.toString(), // Include both for compatibility
                 mobile: user.mobile,
                 name: user.name,
                 email: user.email

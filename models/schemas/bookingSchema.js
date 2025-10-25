@@ -17,7 +17,8 @@ const bookingSchema = new mongoose.Schema({
   },
   booking_time: {
     type: String,
-    required: [true, 'Booking time is required']
+    required: [true, 'Booking time is required'],
+    trim: true
   },
   status: {
     type: String,

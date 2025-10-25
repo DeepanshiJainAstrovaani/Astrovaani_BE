@@ -1,0 +1,3 @@
+# Build and start commands for Render
+build: npm install
+start: npm start

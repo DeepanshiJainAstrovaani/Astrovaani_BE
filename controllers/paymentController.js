@@ -3,15 +3,29 @@ const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const bookingModel = require('../models/bookingModel');
 
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_SECRET,
-});
+// Initialize Razorpay only if credentials are available
+let razorpay = null;
+if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_SECRET) {
+  razorpay = new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_SECRET,
+  });
+  console.log('✅ Razorpay initialized successfully');
+} else {
+  console.warn('⚠️  Razorpay credentials not found. Payment features will be disabled.');
+}
 
 // POST /api/payment/create-order
 // body: { amount, currency?, receipt?, bookingId? }
 exports.createOrder = async (req, res) => {
   try {
+    // Check if Razorpay is initialized
+    if (!razorpay) {
+      return res.status(503).json({ 
+        error: 'Payment service is not configured. Please contact support.' 
+      });
+    }
+
     const { amount, currency = 'INR', receipt, bookingId } = req.body;
 
     if (!amount) {
@@ -27,6 +41,7 @@ exports.createOrder = async (req, res) => {
 
     const order = await razorpay.orders.create(options);
     console.log("Incoming body:", req.body);
+    console.log("Order created:", order);
 
     // You can optionally store (bookingId, order.id) mapping in DB if you have a column
     // For now we just return it to the client.
@@ -45,6 +60,13 @@ exports.createOrder = async (req, res) => {
 // POST /api/payment/verify
 // body: { razorpay_order_id, razorpay_payment_id, razorpay_signature, bookingId }
 exports.verifyPayment = (req, res) => {
+  // Check if Razorpay is configured
+  if (!razorpay || !process.env.RAZORPAY_SECRET) {
+    return res.status(503).json({ 
+      error: 'Payment service is not configured. Please contact support.' 
+    });
+  }
+
   const {
     razorpay_order_id,
     razorpay_payment_id,
@@ -52,7 +74,10 @@ exports.verifyPayment = (req, res) => {
     bookingId,
   } = req.body;
 
+  console.log('Verify body:', req.body);
+
   if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+    console.error('Missing payment verification fields:', req.body);
     return res.status(400).json({ error: 'Missing payment verification fields' });
   }
 
@@ -63,7 +88,11 @@ exports.verifyPayment = (req, res) => {
     .update(signBody)
     .digest('hex');
 
+  console.log('Expected Signature:', expectedSignature);
+  console.log('Received Signature:', razorpay_signature);
+
   const isValid = expectedSignature === razorpay_signature;
+  console.log('Is Valid:', isValid);
 
   if (!isValid) {
     // Optionally flag booking as failed

@@ -1,39 +1,33 @@
 const jwt = require('jsonwebtoken');
 const authModel = require('../models/authModel');
 
-exports.initiateWhatsAppLogin = (req, res) => {
-  const { mobile } = req.body;
-  
-  if (!/^[0-9]{10}$/.test(mobile)) {
-    return res.status(400).json({ 
+exports.initiateWhatsAppLogin = async (req, res) => {
+  try {
+    const { mobile } = req.body;
+    
+    if (!/^[0-9]{10}$/.test(mobile)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid mobile number' 
+      });
+    }
+
+    const result = await authModel.initiateWhatsAppLogin(mobile);
+    res.json(result);
+  } catch (error) {
+    console.error('WhatsApp login error:', error);
+    return res.status(500).json({ 
       success: false, 
-      message: 'Invalid mobile number' 
+      message: 'Failed to send OTP' 
     });
   }
-
-  authModel.initiateWhatsAppLogin(mobile, (err, result) => {
-    if (err) {
-      console.error('WhatsApp login error:', err);
-      return res.status(500).json({ 
-        success: false, 
-        message: 'Failed to send OTP' 
-      });
-    }
-    res.json(result);
-  });
 };
 
-exports.verifyWhatsAppOTP = (req, res) => {
-  const { mobile, otp } = req.body;
-  
-  authModel.verifyWhatsAppOTP(mobile, otp, (err, result) => {
-    if (err) {
-      console.error('OTP verification error:', err);
-      return res.status(500).json({ 
-        success: false, 
-        message: 'Verification failed' 
-      });
-    }
+exports.verifyWhatsAppOTP = async (req, res) => {
+  try {
+    const { mobile, otp } = req.body;
+    
+    const result = await authModel.verifyWhatsAppOTP(mobile, otp);
     
     if (!result.success) {
       return res.status(400).json(result);
@@ -41,7 +35,7 @@ exports.verifyWhatsAppOTP = (req, res) => {
     
     // Generate JWT token
     const token = jwt.sign(
-      { mobile: result.user.mobile },
+      { mobile: result.user.mobile, userId: result.user.id },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -51,5 +45,11 @@ exports.verifyWhatsAppOTP = (req, res) => {
       token,
       user: result.user 
     });
-  });
+  } catch (error) {
+    console.error('OTP verification error:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Verification failed' 
+    });
+  }
 };

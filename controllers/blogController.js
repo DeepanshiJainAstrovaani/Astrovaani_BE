@@ -1,28 +1,28 @@
 const blogModel = require('../models/blogModel');
 
 // Get all blog posts
-exports.getAllBlogs = (req, res) => {
-    blogModel.getAllBlogs((err, results) => {
-        if (err) {
-            console.error('Error fetching blogs:', err);
-            return res.status(500).json({ error: 'Database error' });
-        }
-        res.json(results);
-    });
+exports.getAllBlogs = async (req, res) => {
+  try {
+    const results = await blogModel.getAllBlogs();
+    res.json(results);
+  } catch (error) {
+    console.error('Error fetching blogs:', error);
+    return res.status(500).json({ error: 'Database error', message: error.message });
+  }
 };
 
-exports.getBlogById = (req, res) => {
+exports.getBlogById = async (req, res) => {
+  try {
     const blogId = req.params.id;
-    blogModel.getBlogById(blogId, (err, results) => {
-        if (err) {
-            console.error("Error fetching blog by ID:", err);
-            res.status(500).send('Database error');
-            return;
-        }
-        if (results.length === 0) {
-            res.status(404).send('Contact not found');
-            return;
-        }
-        res.json(results[0]);
-    });
+    const blog = await blogModel.getBlogById(blogId);
+    
+    if (!blog) {
+      return res.status(404).json({ message: 'Blog not found' });
+    }
+    
+    res.json(blog);
+  } catch (error) {
+    console.error("Error fetching blog by ID:", error);
+    res.status(500).json({ error: 'Database error', message: error.message });
+  }
 };

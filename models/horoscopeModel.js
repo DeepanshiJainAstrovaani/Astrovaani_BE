@@ -1,38 +1,35 @@
-const db = require('../config/db');
+const Horoscope = require('./schemas/horoscopeSchema');
 
 // Fetch all horoscopes
-exports.getAllHoroscopes = (callback) => {
-  const query = 'SELECT * FROM horoscope';
-  db.query(query, callback);
+exports.getAllHoroscopes = async () => {
+  try {
+    return await Horoscope.find({});
+  } catch (error) {
+    throw error;
+  }
 };
 
 // Get by zodiac and date
-exports.getByZodiacAndDate = (zodiac, date, callback) => {
-  return new Promise((resolve, reject) => {
-    db.query(
-      'SELECT * FROM horoscope WHERE zodiac = ? AND todaydate = ?',
-      [zodiac, date],
-      (err, results) => {
-        if (err) {
-          console.error(`[DB ERROR] Fetching ${zodiac} - ${date}:`, err);
-          return reject(err);
-        }
-
-        if (results.length > 0) {
-          console.log(`[DB] Entry found for ${zodiac} - ${date}`);
-        } else {
-          console.log(`[DB] No entry found for ${zodiac} - ${date}`);
-        }
-
-        resolve(results[0] || null);
-      }
-    );
-  });
+exports.getByZodiacAndDate = async (zodiac, date) => {
+  try {
+    const horoscope = await Horoscope.findOne({ zodiac, todaydate: date });
+    
+    if (horoscope) {
+      console.log(`[DB] Entry found for ${zodiac} - ${date}`);
+    } else {
+      console.log(`[DB] No entry found for ${zodiac} - ${date}`);
+    }
+    
+    return horoscope;
+  } catch (error) {
+    console.error(`[DB ERROR] Fetching ${zodiac} - ${date}:`, error);
+    throw error;
+  }
 };
 
 // Update existing row by zodiac
-exports.updateHoroscopeByZodiac = (zodiac, data) => {
-  return new Promise((resolve, reject) => {
+exports.updateHoroscopeByZodiac = async (zodiac, data) => {
+  try {
     const updateFields = {
       personallife: data.personallife,
       profession: data.profession,
@@ -46,20 +43,19 @@ exports.updateHoroscopeByZodiac = (zodiac, data) => {
       luckycolor: data.luckycolor,
       luckycolorcode: data.luckycolorcode,
       datetext: data.datetext,
-      todaydate: data.todaydate, // ✅ update todaydate separately
+      todaydate: data.todaydate,
     };
 
-    db.query(
-      'UPDATE horoscope SET ? WHERE zodiac = ?',
-      [updateFields, zodiac],
-      (err, results) => {
-        if (err) {
-          console.error(`[DB ERROR] Updating ${zodiac}:`, err);
-          return reject(err);
-        }
-        console.log(`[DB] Updated DB for ${zodiac} - ${data.todaydate}`);
-        resolve(results);
-      }
+    const result = await Horoscope.findOneAndUpdate(
+      { zodiac },
+      updateFields,
+      { new: true, upsert: true, runValidators: true }
     );
-  });
+
+    console.log(`[DB] Updated DB for ${zodiac} - ${data.todaydate}`);
+    return result;
+  } catch (error) {
+    console.error(`[DB ERROR] Updating ${zodiac}:`, error);
+    throw error;
+  }
 };

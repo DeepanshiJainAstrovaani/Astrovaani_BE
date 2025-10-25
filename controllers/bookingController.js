@@ -1,25 +1,30 @@
 const bookingModel = require('../models/bookingModel');
 
-exports.createBooking = (req, res) => {
-  const bookingData = {
-    userid: req.body.userid,
-    vendorid: req.body.vendorid,
-    bookingtype: req.body.bookingtype,
-    duration: req.body.duration,
-    price: req.body.price,
-    status: 'pending',
-    timestamp: new Date()
-  };
+exports.createBooking = async (req, res) => {
+  try {
+    const bookingData = {
+      user_id: req.body.userid || req.body.user_id,
+      vendor_id: req.body.vendorid || req.body.vendor_id,
+      bookingtype: req.body.bookingtype,
+      booking_date: req.body.booking_date || new Date(),
+      booking_time: req.body.booking_time,
+      duration: req.body.duration,
+      total_amount: req.body.price || req.body.total_amount,
+      status: 'pending',
+      payment_status: 'pending'
+    };
 
-  if (!bookingData.userid || !bookingData.vendorid || !bookingData.bookingtype || !bookingData.duration || !bookingData.price) {
-    return res.status(400).json({ error: 'Missing required fields' });
-  }
-
-  bookingModel.createBooking(bookingData, (err, result) => {
-    if (err) {
-      console.error('Error creating booking:', err);
-      return res.status(500).json({ error: 'Failed to create booking' });
+    if (!bookingData.user_id || !bookingData.vendor_id) {
+      return res.status(400).json({ error: 'Missing required fields: user_id and vendor_id' });
     }
-    res.status(201).json({ message: 'Booking created successfully', bookingId: result.insertId });
-  });
+
+    const booking = await bookingModel.createBooking(bookingData);
+    res.status(201).json({ 
+      message: 'Booking created successfully', 
+      booking 
+    });
+  } catch (error) {
+    console.error('Error creating booking:', error);
+    return res.status(500).json({ error: 'Failed to create booking', message: error.message });
+  }
 };

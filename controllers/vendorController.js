@@ -1,108 +1,97 @@
 const vendorModel = require('../models/vendorModel');
 
 // Get all vendors
-exports.getAllVendors = (req, res) => {
-  vendorModel.getAllVendors((err, results) => {
-    if (err) {
-      console.error('Error fetching vendors:', err);
-      res.status(500).send('Database error');
-      return;
-    }
+exports.getAllVendors = async (req, res) => {
+  try {
+    const results = await vendorModel.getAllVendors();
     res.json(results);
-  });
+  } catch (error) {
+    console.error('Error fetching vendors:', error);
+    res.status(500).json({ message: 'Database error', error: error.message });
+  }
 };
 
 // Create a new vendor
-exports.createVendor = (req, res) => {
-  const vendorData = req.body;
-
-  vendorModel.createVendor(vendorData, (err, results) => {
-    if (err) {
-      console.error('Error creating vendor:', err);
-      res.status(500).send('Database error');
-      return;
-    }
-    res.status(201).json({ id: results.insertId, ...vendorData });
-  });
+exports.createVendor = async (req, res) => {
+  try {
+    const vendorData = req.body;
+    const vendor = await vendorModel.createVendor(vendorData);
+    res.status(201).json(vendor);
+  } catch (error) {
+    console.error('Error creating vendor:', error);
+    res.status(500).json({ message: 'Database error', error: error.message });
+  }
 };
 
 // Get a vendor by ID
-exports.getVendorById = (req, res) => {
-  const vendorId = req.params.id;
-
-  vendorModel.getVendorById(vendorId, (err, results) => {
-    if (err) {
-      console.error('Error fetching vendor:', err);
-      res.status(500).send('Database error');
-      return;
+exports.getVendorById = async (req, res) => {
+  try {
+    const vendorId = req.params.id;
+    const vendor = await vendorModel.getVendorById(vendorId);
+    
+    if (!vendor) {
+      return res.status(404).json({ message: 'Vendor not found' });
     }
-    if (results.length === 0) {
-      res.status(404).send('Vendor not found');
-      return;
-    }
-    res.json(results[0]);
-  });
+    
+    res.json(vendor);
+  } catch (error) {
+    console.error('Error fetching vendor:', error);
+    res.status(500).json({ message: 'Database error', error: error.message });
+  }
 };
 
 // Update a vendor by ID
-exports.updateVendor = (req, res) => {
-  const vendorId = req.params.id;
-  const vendorData = req.body;
-
-  vendorModel.updateVendor(vendorId, vendorData, (err, results) => {
-    if (err) {
-      console.error('Error updating vendor:', err);
-      res.status(500).send('Database error');
-      return;
+exports.updateVendor = async (req, res) => {
+  try {
+    const vendorId = req.params.id;
+    const vendorData = req.body;
+    const vendor = await vendorModel.updateVendor(vendorId, vendorData);
+    
+    if (!vendor) {
+      return res.status(404).json({ message: 'Vendor not found' });
     }
-    if (results.affectedRows === 0) {
-      res.status(404).send('Vendor not found');
-      return;
-    }
-    res.json({ id: vendorId, ...vendorData });
-  });
+    
+    res.json(vendor);
+  } catch (error) {
+    console.error('Error updating vendor:', error);
+    res.status(500).json({ message: 'Database error', error: error.message });
+  }
 };
 
 // Delete a vendor by ID
-exports.deleteVendor = (req, res) => {
-  const vendorId = req.params.id;
-
-  vendorModel.deleteVendor(vendorId, (err, results) => {
-    if (err) {
-      console.error('Error deleting vendor:', err);
-      res.status(500).send('Database error');
-      return;
+exports.deleteVendor = async (req, res) => {
+  try {
+    const vendorId = req.params.id;
+    const vendor = await vendorModel.deleteVendor(vendorId);
+    
+    if (!vendor) {
+      return res.status(404).json({ message: 'Vendor not found' });
     }
-    if (results.affectedRows === 0) {
-      res.status(404).send('Vendor not found');
-      return;
-    }
+    
     res.status(204).send();
-  });
+  } catch (error) {
+    console.error('Error deleting vendor:', error);
+    res.status(500).json({ message: 'Database error', error: error.message });
+  }
 };
 
 // Get vendors by category
-exports.getVendorsByCategory = (req, res) => {
+exports.getVendorsByCategory = async (req, res) => {
+  try {
     const category = req.query.category; 
-    console.log('Received category:', category);  // Add this line
+    console.log('Received category:', category);
 
     if (!category) {
-      console.log('No category provided');  // Add this line
+      console.log('No category provided');
       return res.status(400).json({ message: 'Category is required' });
     }
 
-    vendorModel.getVendorsByCategory(category, (err, results) => {
-      if (err) {
-        console.error('Error fetching vendors by category:', err);
-        return res.status(500).send('Database error');
-      }
-
-      console.log('Results:', results); // Log the results
-
-      if (results.length === 0) {
-        return res.status(404).json({ message: 'No vendors found for this category' });
-      }
-
-      res.json(results);
-    });
+    const results = await vendorModel.getVendorsByCategory(category);
+    console.log('Results:', results);
+    
+    res.json(results);
+  } catch (error) {
+    console.error('Error fetching vendors by category:', error);
+    res.status(500).json({ message: 'Database error', error: error.message });
+  }
 };

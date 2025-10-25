@@ -1,31 +1,47 @@
-const db = require('../config/db');
+const Contact = require('./schemas/contactSchema');
 
 // Fetch all contacts
-exports.getAllContacts = (callback) => {
-  const query = 'SELECT * FROM contact';
-  db.query(query, callback);
+exports.getAllContacts = async () => {
+  try {
+    return await Contact.find({}).sort({ createdAt: -1 });
+  } catch (error) {
+    throw error;
+  }
 };
 
 // Create a new contact
-exports.createContact = (data, callback) => {
-  const query = 'INSERT INTO contact SET ?';
-  db.query(query, data, callback);
+exports.createContact = async (data) => {
+  try {
+    const contact = await Contact.create(data);
+    return contact;
+  } catch (error) {
+    throw error;
+  }
 };
 
 // Get a contact by ID
-exports.getContactById = (id, callback) => {
-  const query = 'SELECT * FROM contact WHERE id = ?';
-  db.query(query, [id], callback);
+exports.getContactById = async (id) => {
+  try {
+    return await Contact.findById(id);
+  } catch (error) {
+    throw error;
+  }
 };
 
 // Update a contact by ID
-exports.updateContact = (id, data, callback) => {
-  const query = 'UPDATE contact SET ? WHERE id = ?';
-  db.query(query, [data, id], callback);
+exports.updateContact = async (id, data) => {
+  try {
+    return await Contact.findByIdAndUpdate(id, data, { new: true, runValidators: true });
+  } catch (error) {
+    throw error;
+  }
 };
 
 // Delete a contact by ID
-exports.deleteContact = (id, callback) => {
-  const query = 'DELETE FROM contact WHERE id = ?';
-  db.query(query, [id], callback);
+exports.deleteContact = async (id) => {
+  try {
+    return await Contact.findByIdAndDelete(id);
+  } catch (error) {
+    throw error;
+  }
 };

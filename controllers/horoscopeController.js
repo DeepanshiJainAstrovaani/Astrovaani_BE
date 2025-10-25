@@ -2,14 +2,14 @@ const horoscopeModel = require('../models/horoscopeModel');
 const axios = require('axios');
 
 // Get all horoscopes
-exports.getAllHoroscopes = (req, res) => {
-    horoscopeModel.getAllHoroscopes((err, results) => {
-        if (err) {
-            console.error('Error fetching horoscopes:', err);
-            return res.status(500).send('Database error');
-        }
-        res.json(results);
-    });
+exports.getAllHoroscopes = async (req, res) => {
+  try {
+    const results = await horoscopeModel.getAllHoroscopes();
+    res.json(results);
+  } catch (error) {
+    console.error('Error fetching horoscopes:', error);
+    return res.status(500).json({ error: 'Database error', message: error.message });
+  }
 };
 
 exports.getDailyPrediction = async (req, res) => {

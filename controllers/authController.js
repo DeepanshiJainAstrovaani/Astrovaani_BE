@@ -40,10 +40,19 @@ exports.verifyWhatsAppOTP = async (req, res) => {
       { expiresIn: '7d' }
     );
     
+    // Ensure user object has both _id and id fields
+    const userResponse = {
+      ...result.user,
+      _id: result.user._id || result.user.id,
+      id: result.user.id || result.user._id
+    };
+    
+    console.log('✅ Verify OTP - Returning user:', userResponse);
+    
     res.json({ 
       success: true, 
       token,
-      user: result.user 
+      user: userResponse
     });
   } catch (error) {
     console.error('OTP verification error:', error);

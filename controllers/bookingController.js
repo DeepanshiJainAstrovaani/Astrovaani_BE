@@ -12,20 +12,27 @@ exports.createBooking = async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields: user_id and vendor_id' });
     }
 
+    console.log('🔵 Booking Request - userId:', userId);
+    console.log('🔵 Booking Request - vendorId:', vendorId);
+
     // Validate MongoDB ObjectIds
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({ 
-        error: 'Invalid user_id format', 
-        message: 'User ID must be a valid MongoDB ObjectId. Please login first to get a valid user ID.' 
-      });
-    }
+    // if (!mongoose.Types.ObjectId.isValid(userId)) {
+    //   console.log('🔴 Booking Request - Invalid user_id:', userId);
+    //   return res.status(400).json({ 
+    //     error: 'Invalid user_id format', 
+    //     message: `User ID "${userId}" is not valid. Please login first to get a valid user ID.` 
+    //   });
+    // }
 
     if (!mongoose.Types.ObjectId.isValid(vendorId)) {
+      console.log('🔴 Booking Request - Invalid vendor_id:', vendorId);
       return res.status(400).json({ 
         error: 'Invalid vendor_id format', 
         message: 'Vendor ID must be a valid MongoDB ObjectId.' 
       });
     }
+
+    console.log('🟢 Booking Request - Valid ObjectIds');
 
     // Get booking time - use birthtime if booking_time not provided
     const bookingTime = req.body.booking_time || req.body.birthtime || '';

@@ -5,17 +5,23 @@ exports.initiateWhatsAppLogin = async (req, res) => {
   try {
     const { mobile } = req.body;
     
+    console.log('🔵 Login Request - Received mobile:', mobile);
+    console.log('🔵 Login Request - Full body:', req.body);
+    
     if (!/^[0-9]{10}$/.test(mobile)) {
+      console.log('🔴 Login Request - Invalid mobile format');
       return res.status(400).json({ 
         success: false, 
         message: 'Invalid mobile number' 
       });
     }
 
+    console.log('🟢 Login Request - Calling authModel.initiateWhatsAppLogin');
     const result = await authModel.initiateWhatsAppLogin(mobile);
+    console.log('🟢 Login Request - Result:', result);
     res.json(result);
   } catch (error) {
-    console.error('WhatsApp login error:', error);
+    console.error('🔴 WhatsApp login error:', error);
     return res.status(500).json({ 
       success: false, 
       message: 'Failed to send OTP' 

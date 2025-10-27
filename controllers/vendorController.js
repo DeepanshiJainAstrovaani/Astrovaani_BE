@@ -27,15 +27,24 @@ exports.createVendor = async (req, res) => {
 exports.getVendorById = async (req, res) => {
   try {
     const vendorId = req.params.id;
+    console.log('🔵 Fetching vendor with ID:', vendorId);
     const vendor = await vendorModel.getVendorById(vendorId);
     
     if (!vendor) {
+      console.log('⚠️ Vendor not found with ID:', vendorId);
       return res.status(404).json({ message: 'Vendor not found' });
     }
     
+    console.log('✅ Vendor found:', {
+      id: vendor._id,
+      name: vendor.name,
+      priceperminute: vendor.priceperminute,
+      category: vendor.category
+    });
+    
     res.json(vendor);
   } catch (error) {
-    console.error('Error fetching vendor:', error);
+    console.error('🔴 Error fetching vendor:', error);
     res.status(500).json({ message: 'Database error', error: error.message });
   }
 };

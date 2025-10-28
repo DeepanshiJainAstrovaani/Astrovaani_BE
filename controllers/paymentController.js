@@ -19,16 +19,23 @@ if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_SECRET) {
 // body: { amount, currency?, receipt?, bookingId? }
 exports.createOrder = async (req, res) => {
   try {
+    console.log('🔵 Create order request received');
+    console.log('🔵 Request body:', req.body);
+    console.log('🔵 Razorpay initialized:', !!razorpay);
+    
     // Check if Razorpay is initialized
     if (!razorpay) {
+      console.error('🔴 Razorpay not initialized - missing credentials');
       return res.status(503).json({ 
-        error: 'Payment service is not configured. Please contact support.' 
+        error: 'Payment service is not configured. Razorpay credentials are missing. Please contact support.',
+        details: 'RAZORPAY_KEY_ID or RAZORPAY_SECRET not set'
       });
     }
 
     const { amount, currency = 'INR', receipt, bookingId } = req.body;
 
     if (!amount) {
+      console.error('🔴 Amount missing in request');
       return res.status(400).json({ error: 'amount is required (in INR)' });
     }
 
@@ -38,10 +45,11 @@ exports.createOrder = async (req, res) => {
       currency,
       receipt: receipt || `rcpt_${Date.now()}`,
     };
+    
+    console.log('🟡 Creating Razorpay order with options:', options);
 
     const order = await razorpay.orders.create(options);
-    console.log("Incoming body:", req.body);
-    console.log("Order created:", order);
+    console.log("✅ Order created successfully:", order);
 
     // You can optionally store (bookingId, order.id) mapping in DB if you have a column
     // For now we just return it to the client.
@@ -52,14 +60,20 @@ exports.createOrder = async (req, res) => {
       bookingId: bookingId || null,
     });
   } catch (err) {
-    console.error('Razorpay createOrder error:', err);
-    return res.status(500).json({ error: 'Failed to create Razorpay order' });
+    console.error('🔴 Razorpay createOrder error:', err);
+    console.error('🔴 Error message:', err.message);
+    console.error('🔴 Error stack:', err.stack);
+    return res.status(500).json({ 
+      error: 'Failed to create Razorpay order',
+      message: err.message,
+      details: err.error?.description || 'Unknown error'
+    });
   }
 };
 
 // POST /api/payment/verify
 // body: { razorpay_order_id, razorpay_payment_id, razorpay_signature, bookingId }
-exports.verifyPayment = (req, res) => {
+exports.verifyPayment = async (req, res) => {
   // Check if Razorpay is configured
   if (!razorpay || !process.env.RAZORPAY_SECRET) {
     return res.status(503).json({ 
@@ -97,29 +111,33 @@ exports.verifyPayment = (req, res) => {
   if (!isValid) {
     // Optionally flag booking as failed
     if (bookingId) {
-      bookingModel.updateBookingStatus(bookingId, 'payment_failed', (err) => {
-        if (err) console.error('Failed to set booking payment_failed:', err);
-        return res.status(400).json({ error: 'Invalid signature' });
-      });
-    } else {
-      return res.status(400).json({ error: 'Invalid signature' });
+      try {
+        await bookingModel.updateBookingStatus(bookingId, 'cancelled');
+        console.log('⚠️ Booking marked as cancelled due to invalid signature:', bookingId);
+      } catch (err) {
+        console.error('🔴 Failed to set booking cancelled:', err);
+      }
     }
-    return;
+    return res.status(400).json({ error: 'Invalid payment signature' });
   }
 
-  // Signature is valid → mark booking as paid
+  // Signature is valid → mark booking as confirmed
   if (bookingId) {
-    bookingModel.updateBookingStatus(bookingId, 'paid', (err) => {
-      if (err) {
-        console.error('Failed to set booking paid:', err);
-        return res.status(500).json({ error: 'Payment verified but failed to update booking' });
-      }
+    try {
+      await bookingModel.updateBookingStatus(bookingId, 'confirmed');
+      console.log('✅ Booking marked as confirmed:', bookingId);
       return res.status(200).json({
         success: true,
-        message: 'Payment verified & booking marked as paid',
+        message: 'Payment verified & booking confirmed',
         paymentId: razorpay_payment_id,
       });
-    });
+    } catch (err) {
+      console.error('🔴 Failed to set booking confirmed:', err);
+      return res.status(500).json({ 
+        error: 'Payment verified but failed to update booking',
+        message: err.message 
+      });
+    }
   } else {
     return res.status(200).json({
       success: true,

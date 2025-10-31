@@ -121,18 +121,25 @@ exports.verifyPayment = async (req, res) => {
     return res.status(400).json({ error: 'Invalid payment signature' });
   }
 
-  // Signature is valid → mark booking as confirmed
+  // Signature is valid → mark booking as confirmed and payment as completed
   if (bookingId) {
     try {
+      // Update payment status first
+      await bookingModel.updatePaymentStatus(bookingId, 'completed', razorpay_payment_id);
+      
+      // Then update booking status to confirmed
       await bookingModel.updateBookingStatus(bookingId, 'confirmed');
-      console.log('✅ Booking marked as confirmed:', bookingId);
+      
+      console.log('✅ Booking marked as confirmed with payment completed:', bookingId);
+      
       return res.status(200).json({
         success: true,
         message: 'Payment verified & booking confirmed',
         paymentId: razorpay_payment_id,
+        bookingId: bookingId
       });
     } catch (err) {
-      console.error('🔴 Failed to set booking confirmed:', err);
+      console.error('🔴 Failed to update booking:', err);
       return res.status(500).json({ 
         error: 'Payment verified but failed to update booking',
         message: err.message 

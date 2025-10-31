@@ -11,6 +11,12 @@ const bookingSchema = new mongoose.Schema({
     ref: 'Vendor',
     required: [true, 'Vendor ID is required']
   },
+  bookingtype: {
+    type: String,
+    enum: ['call', 'chat', 'video'],
+    default: 'call',
+    trim: true
+  },
   booking_date: {
     type: Date,
     required: [true, 'Booking date is required']
@@ -19,6 +25,11 @@ const bookingSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Booking time is required'],
     trim: true
+  },
+  duration: {
+    type: Number,
+    min: 0,
+    default: 30, // in minutes
   },
   status: {
     type: String,
@@ -35,6 +46,23 @@ const bookingSchema = new mongoose.Schema({
     default: 'pending'
   },
   payment_id: {
+    type: String,
+    trim: true
+  },
+  booking_notes: {
+    type: String,
+    trim: true
+  },
+  vendor_notes: {
+    type: String,
+    trim: true
+  },
+  rating: {
+    type: Number,
+    min: 1,
+    max: 5
+  },
+  review: {
     type: String,
     trim: true
   }

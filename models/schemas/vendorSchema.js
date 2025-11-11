@@ -11,6 +11,31 @@ const vendorSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  // Additional photos
+  photo2: { type: String, trim: true },
+  photo3: { type: String, trim: true },
+  photo4: { type: String, trim: true },
+  photo5: { type: String, trim: true },
+
+  // Contact & personal details
+  phone: { type: String, trim: true },
+  whatsapp: { type: String, trim: true },
+  email: { type: String, trim: true },
+  gender: { type: String, trim: true },
+  age: { type: String, trim: true },
+
+  // Location
+  state: { type: String, trim: true },
+  city: { type: String, trim: true },
+  pincode: { type: String, trim: true },
+
+  // Bank details
+  accountholder: { type: String, trim: true },
+  accountno: { type: String, trim: true },
+  ifsc: { type: String, trim: true },
+
+  // Other commonly used fields
+  about: { type: String, trim: true },
   category: {
     type: String,
     required: [true, 'Category is required'],
@@ -22,6 +47,10 @@ const vendorSchema = new mongoose.Schema({
     trim: true
   },
   experience: {
+    type: String,
+    trim: true
+  },
+  skills: {
     type: String,
     trim: true
   },
@@ -37,6 +66,16 @@ const vendorSchema = new mongoose.Schema({
     type: Number,
     min: 0
   },
+  // Scheduling slots
+  schedules: [
+    {
+      scheduledAt: { type: Date },
+      duration: { type: Number },
+      status: { type: String, trim: true, default: 'proposed' }, // proposed | confirmed | canceled
+      meetLink: { type: String, trim: true },
+      createdAt: { type: Date, default: Date.now }
+    }
+  ],
   rating: {
     type: Number,
     min: 0,
@@ -47,6 +86,7 @@ const vendorSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  status: { type: String, trim: true },
   is_available: {
     type: Boolean,
     default: true
@@ -54,7 +94,10 @@ const vendorSchema = new mongoose.Schema({
   isVerified: {
     type: Boolean,
     default: false
-  }
+  },
+  // Interview metadata
+  interviewerid: { type: String, trim: true },
+  interviewcode: { type: String, trim: true }
 }, {
   timestamps: true,
   collection: 'community', // Use 'community' as collection name to match your MySQL table

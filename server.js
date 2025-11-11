@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const { connectDB } = require('./config/db');
 const contactRoutes = require('./routes/contactRoutes');
 const vendorRoutes = require('./routes/vendorRoutes');
@@ -21,6 +22,9 @@ app.use(cors({
 }));
 app.options('*', cors()); // Allow requests from your Expo app
 app.use(express.json()); // Parse JSON data in requests
+
+// Serve uploaded images
+app.use('/community', express.static(path.join(__dirname, 'community')));
 
 // Connect to MongoDB
 connectDB();

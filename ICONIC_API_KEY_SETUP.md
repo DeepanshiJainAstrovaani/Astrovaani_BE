@@ -54,12 +54,9 @@ Expected success response:
 ```
 
 ## Alternative: Use Twilio (Already Configured)
-Your .env already has Twilio credentials configured:
-- TWILIO_ACCOUNT_SID=AC0cf14173dde1da3ed8d8702013ff449f
-- TWILIO_AUTH_TOKEN=a5427413aaff561211204efd28b1e6a5
-- TWILIO_FROM_WHATSAPP_NUMBER=+14155238886
+Your .env already has Twilio credentials configured. If IconicSolution continues to fail, we can switch to Twilio for WhatsApp messaging.
 
-If IconicSolution continues to fail, we can switch to Twilio for WhatsApp messaging.
+**Note**: Twilio credentials are stored in `.env` file (not committed to git for security).
 
 ## Next Steps
 1. Contact IconicSolution support with:

@@ -368,3 +368,27 @@ exports.deleteVendorSchedule = async (req, res) => {
     res.status(500).json({ message: 'Database error', error: error.message });
   }
 };
+
+// Clear all schedules for a vendor (bulk delete)
+exports.clearAllVendorSchedules = async (req, res) => {
+  try {
+    const vendorId = req.params.id;
+    
+    const vendor = await vendorModel.getVendorById(vendorId);
+    if (!vendor) return res.status(404).json({ message: 'Vendor not found' });
+
+    // Clear all schedules
+    const removedCount = vendor.schedules.length;
+    vendor.schedules = [];
+
+    await vendor.save();
+    res.json({ 
+      message: `All ${removedCount} schedule(s) cleared successfully`,
+      proposed: [],
+      confirmed: []
+    });
+  } catch (error) {
+    console.error('Error clearing schedules:', error);
+    res.status(500).json({ message: 'Database error', error: error.message });
+  }
+};

@@ -31,6 +31,9 @@ router.get('/:id/schedules', vendorController.getVendorSchedules);
 // POST /api/vendors/:id/schedules
 router.post('/:id/schedules', vendorController.createVendorSchedules);
 
+// DELETE /api/vendors/:id/schedules (clear all)
+router.delete('/:id/schedules', vendorController.clearAllVendorSchedules);
+
 // DELETE /api/vendors/:id/schedules/:scheduleId
 router.delete('/:id/schedules/:scheduleId', vendorController.deleteVendorSchedule);
 

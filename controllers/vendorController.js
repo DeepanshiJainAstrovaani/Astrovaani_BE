@@ -2,6 +2,7 @@ const vendorModel = require('../models/vendorModel');
 const axios = require('axios');
 const Notification = require('../models/notificationModel');
 const nodemailer = require('nodemailer');
+const { sendWhatsApp } = require('../utils/whatsappService');
  
 // Get all vendors
 exports.getAllVendors = async (req, res) => {
@@ -146,7 +147,7 @@ exports.getVendorSchedules = async (req, res) => {
   }
 };
 
-// Create proposed schedules for a vendor (append)
+// Create proposed schedules for a vendor (REPLACE, not append)
 exports.createVendorSchedules = async (req, res) => {
   try {
     const vendorId = req.params.id;
@@ -155,11 +156,13 @@ exports.createVendorSchedules = async (req, res) => {
     const vendor = await vendorModel.getVendorById(vendorId);
     if (!vendor) return res.status(404).json({ message: 'Vendor not found' });
 
-    // append slots
-    slots.forEach(slot => {
-      vendor.schedules = vendor.schedules || [];
-      vendor.schedules.push({ scheduledAt: slot.scheduledAt, duration: slot.duration, status: 'proposed' });
-    });
+    // REPLACE slots instead of appending (FIX: prevents duplicates)
+    vendor.schedules = slots.map(slot => ({
+      scheduledAt: slot.scheduledAt,
+      duration: slot.duration,
+      status: slot.status || 'proposed'
+    }));
+    
     await vendor.save();
     res.json({ proposed: vendor.schedules, confirmed: vendor.schedules.filter(s => s.status === 'confirmed') });
   } catch (error) {
@@ -187,20 +190,13 @@ exports.notifyVendorSlots = async (req, res) => {
     const interviewCode = `ASTROVAANI-${dr}`;
     vendor.interviewcode = interviewCode;
 
-    // If frontend provided slots or a meeting link with the notify request, append them as proposed schedules
-    const providedSlots = Array.isArray(req.body && req.body.slots) ? req.body.slots : [];
+    // If frontend provided slots or a meeting link with the notify request, DON'T append them again
+    // They are already saved via createVendorSchedules, so just use existing vendor.schedules
+    const providedSlots = vendor.schedules || [];
     const providedMeetLink = req.body && req.body.meetLink ? String(req.body.meetLink).trim() : '';
 
-    if (providedSlots.length > 0) {
-      vendor.schedules = vendor.schedules || [];
-      providedSlots.forEach(slot => {
-        const scheduledAt = slot.scheduledAt ? new Date(slot.scheduledAt) : null;
-        const duration = slot.duration ? Number(slot.duration) : (slot.duration === 0 ? 0 : null);
-        const scheduleObj = { scheduledAt, duration, status: 'proposed' };
-        if (providedMeetLink) scheduleObj.meetLink = providedMeetLink;
-        vendor.schedules.push(scheduleObj);
-      });
-    }
+    // DON'T push slots again - they're already in vendor.schedules from saveSlots
+    // This prevents duplication when clicking "Notify Vendor"
 
     // Save vendor with new interview code and any proposed slots
     await vendor.save();
@@ -228,81 +224,99 @@ exports.notifyVendorSlots = async (req, res) => {
 
     const msg = `*Dear ${name}*,\n\nWe are pleased to inform you that your joining application has been approved. As the next step, your interview has been scheduled, and we invite you to book a suitable time slot.${slotText}\nPlease click on the link below to select an available slot for your interview:\n\n*${link}*\n\n${meetText}Should you have any questions or need further assistance, feel free to reach out to us at support@astrovaani.com\n\n*Note:* If you're unable to click on the link, please save this number in your contacts, and the link will become clickable.`;
 
-    const iconicKey = process.env.ICONIC_API_KEY || '';
-    if (!iconicKey) {
-      console.warn('ICONIC_API_KEY not set; skipping WhatsApp send');
-      return res.json({ message: 'Interview code set, but notification not sent (missing ICONIC_API_KEY)', interviewCode });
-    }
-
-    // helper: normalize mobile to include country code (assume India if 10 digits)
+    // IconicSolution API key (same as PHP uses for vendor notifications)
+    const iconicKey = process.env.ICONIC_API_KEY || '0bf9865d140d4676b28be02813fbf1c8';
+    
+    // Normalize mobile to include country code
     const normalizeMobile = (raw) => {
       if (!raw) return raw;
       let digits = raw.replace(/[^0-9]/g, '');
-      if (digits.length === 10) digits = '91' + digits; // assume IN
+      if (digits.length === 10) digits = '91' + digits; // assume India
       if (digits.length === 11 && digits.startsWith('0')) digits = '91' + digits.slice(1);
-      return digits; // return without + prefix for IconicSolution
+      return digits;
     };
-
+    
     const mobileFormatted = normalizeMobile(mobile);
-
+    
     let whatsappResponse = null;
     let finalStatus = 'failed';
-    let providerDetails = [];
-
-    // Debug log (mask key)
-    const maskedKey = iconicKey ? (iconicKey.slice(0,4) + '...' + iconicKey.slice(-4)) : 'MISSING';
-    console.log('📱 Sending WhatsApp via IconicSolution');
+    
+    // Send WhatsApp notification (DUMMY MODE for testing)
+    console.log('📱 Sending WhatsApp notification (DUMMY MODE)');
     console.log('   Mobile:', mobileFormatted);
-    console.log('   API KEY:', maskedKey);
-    console.log('   Message preview:', msg.substring(0, 100) + '...');
-
-    // IconicSolution API - matching PHP implementation exactly
-    // PHP uses HTTP (not HTTPS) for this endpoint!
-    const sendUrl = 'http://api.iconicsolution.co.in/wapp/v2/api/send';
+    console.log('   Message length:', msg.length);
+    console.log('   Interview Code:', interviewCode);
     
-    console.log(`🔄 Sending WhatsApp via IconicSolution (POST x-www-form-urlencoded)`);
-    console.log(`   Endpoint: ${sendUrl}`);
+    // Check if DUMMY mode is enabled (set WHATSAPP_DUMMY=true in .env for testing)
+    const isDummyMode = process.env.WHATSAPP_DUMMY === 'true';
     
-    // Use URLSearchParams to match PHP's CURLOPT_POSTFIELDS behavior (form-urlencoded, not multipart)
-    const params = new URLSearchParams();
-    params.append('apikey', iconicKey);
-    params.append('mobile', mobileFormatted);
-    params.append('msg', msg);
-    
-    console.log(`📦 Request body (URL encoded):`, params.toString().substring(0, 200) + '...');
-    console.log(`📦 Params object:`, { apikey: maskedKey, mobile: mobileFormatted, msgLength: msg.length });
-    
-    try {
-      const sendRes = await axios.post(sendUrl, params.toString(), { 
-        headers: { 
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'User-Agent': 'curl/7.68.0', // Mimic PHP cURL
-          'Accept': '*/*'
-        },
-        timeout: 15000
-      });
-      whatsappResponse = sendRes.data;
-      console.log(`✅ WhatsApp API response:`, whatsappResponse);
-      providerDetails.push({ attempt: 'iconicsolution-urlencoded', url: sendUrl, response: whatsappResponse });
+    if (isDummyMode) {
+      // DUMMY MODE: Simulate successful WhatsApp send
+      console.log('🧪 DUMMY MODE ENABLED - Simulating successful WhatsApp send');
+      console.log('📝 Message preview:\n', msg.substring(0, 200) + '...');
       
-      // Check for success
-      if (whatsappResponse && (whatsappResponse.status === 'success' || whatsappResponse.success === true || whatsappResponse.statuscode === 200 || whatsappResponse.statuscode === 2000)) {
-        finalStatus = 'sent';
-        console.log(`✅ WhatsApp sent successfully!`);
-      } else {
-        console.warn(`⚠️ WhatsApp API returned non-success status:`, whatsappResponse);
+      whatsappResponse = {
+        status: 'success',
+        statuscode: 200,
+        msg: 'Message sent successfully (DUMMY)',
+        messageId: `dummy_msg_${Date.now()}`,
+        mobile: mobileFormatted,
+        timestamp: new Date().toISOString()
+      };
+      
+      finalStatus = 'sent';
+      console.log(`✅ WhatsApp sent successfully (DUMMY MODE)!`);
+    } else {
+      // REAL MODE: Use PHP proxy endpoint
+      const proxyUrl = process.env.WHATSAPP_PROXY_URL || 'https://astrovaani.com/apis/whatsapp_proxy.php';
+      
+      try {
+        console.log('🔄 Calling PHP proxy at:', proxyUrl);
+        
+        const sendRes = await axios.post(proxyUrl, { 
+          mobile: mobileFormatted,
+          msg: msg
+        }, { 
+          headers: { 
+            'Content-Type': 'application/json'
+          },
+          timeout: 30000
+        });
+        
+        whatsappResponse = sendRes.data;
+        console.log(`✅ WhatsApp API response:`, whatsappResponse);
+        
+        // Check for success
+        if (whatsappResponse && (whatsappResponse.status === 'success' || whatsappResponse.success === true || whatsappResponse.statuscode === 200 || whatsappResponse.statuscode === 2000)) {
+          finalStatus = 'sent';
+          console.log(`✅ WhatsApp sent successfully!`);
+        } else {
+          console.warn(`⚠️ WhatsApp API returned non-success status:`, whatsappResponse);
+        }
+      } catch (waErr) {
+        const errDetail = waErr?.response?.data || { message: waErr.message, code: waErr.code };
+        console.error(`❌ WhatsApp send error:`, errDetail);
+        whatsappResponse = errDetail;
       }
-    } catch (waErr) {
-      const errDetail = waErr?.response?.data || { message: waErr.message, code: waErr.code };
-      console.error(`❌ WhatsApp send error:`, errDetail);
-      providerDetails.push({ attempt: 'iconicsolution-urlencoded', url: sendUrl, error: errDetail });
     }
 
-    // Log notification with aggregated provider details
+    // Log notification
     if (finalStatus === 'sent') {
-      await Notification.create({ vendorId: vendor._id, type: 'whatsapp', payload: { msg, mobile: mobileFormatted, slots: providedSlots, meetLink: providedMeetLink }, status: 'sent', providerResponse: whatsappResponse, providerDetails });
+      await Notification.create({ 
+        vendorId: vendor._id, 
+        type: 'whatsapp', 
+        payload: { msg, mobile: mobileFormatted, slots: providedSlots, meetLink: providedMeetLink }, 
+        status: 'sent', 
+        providerResponse: whatsappResponse
+      });
     } else {
-      await Notification.create({ vendorId: vendor._id, type: 'whatsapp', payload: { msg, mobile: mobileFormatted, slots: providedSlots, meetLink: providedMeetLink }, status: 'failed', error: providerDetails });
+      await Notification.create({ 
+        vendorId: vendor._id, 
+        type: 'whatsapp', 
+        payload: { msg, mobile: mobileFormatted, slots: providedSlots, meetLink: providedMeetLink }, 
+        status: 'failed', 
+        error: whatsappResponse 
+      });
     }
 
     // Send email via nodemailer if email available and ENABLE_EMAIL is true
@@ -336,9 +350,69 @@ exports.notifyVendorSlots = async (req, res) => {
       if (!enableEmail) console.log('Email disabled via ENABLE_EMAIL flag; skipping email send');
     }
 
-    return res.json({ message: 'Notification process completed', whatsappResponse, emailResponse, interviewCode });
+    return res.json({ 
+      message: 'Notification process completed', 
+      whatsappResponse, 
+      emailResponse, 
+      interviewCode 
+    });
   } catch (error) {
     console.error('Error notifying vendor:', error?.response?.data || error.message || error);
     res.status(500).json({ message: 'Notification error', error: error?.response?.data || error.message });
+  }
+};
+
+// Delete a specific schedule for a vendor
+exports.deleteVendorSchedule = async (req, res) => {
+  try {
+    const vendorId = req.params.id;
+    const scheduleId = req.params.scheduleId;
+    
+    const vendor = await vendorModel.getVendorById(vendorId);
+    if (!vendor) return res.status(404).json({ message: 'Vendor not found' });
+
+    // Remove the schedule by _id
+    const initialLength = vendor.schedules.length;
+    vendor.schedules = vendor.schedules.filter(
+      schedule => schedule._id.toString() !== scheduleId
+    );
+
+    if (vendor.schedules.length === initialLength) {
+      return res.status(404).json({ message: 'Schedule not found' });
+    }
+
+    await vendor.save();
+    res.json({ 
+      message: 'Schedule removed successfully',
+      proposed: vendor.schedules,
+      confirmed: vendor.schedules.filter(s => s.status === 'confirmed')
+    });
+  } catch (error) {
+    console.error('Error deleting schedule:', error);
+    res.status(500).json({ message: 'Database error', error: error.message });
+  }
+};
+
+// Clear all schedules for a vendor (bulk delete)
+exports.clearAllVendorSchedules = async (req, res) => {
+  try {
+    const vendorId = req.params.id;
+    
+    const vendor = await vendorModel.getVendorById(vendorId);
+    if (!vendor) return res.status(404).json({ message: 'Vendor not found' });
+
+    // Clear all schedules
+    const removedCount = vendor.schedules.length;
+    vendor.schedules = [];
+
+    await vendor.save();
+    res.json({ 
+      message: `All ${removedCount} schedule(s) cleared successfully`,
+      proposed: [],
+      confirmed: []
+    });
+  } catch (error) {
+    console.error('Error clearing schedules:', error);
+    res.status(500).json({ message: 'Database error', error: error.message });
   }
 };

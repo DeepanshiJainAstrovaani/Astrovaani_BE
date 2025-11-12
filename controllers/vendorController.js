@@ -2,7 +2,6 @@ const vendorModel = require('../models/vendorModel');
 const axios = require('axios');
 const Notification = require('../models/notificationModel');
 const nodemailer = require('nodemailer');
-const { sendWhatsApp } = require('../utils/whatsappService');
  
 // Get all vendors
 exports.getAllVendors = async (req, res) => {

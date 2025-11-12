@@ -241,42 +241,63 @@ exports.notifyVendorSlots = async (req, res) => {
     let whatsappResponse = null;
     let finalStatus = 'failed';
     
-    // Send WhatsApp using IconicSolution (matching PHP implementation exactly)
-    console.log('📱 Sending WhatsApp via IconicSolution');
+    // Send WhatsApp notification (DUMMY MODE for testing)
+    console.log('📱 Sending WhatsApp notification (DUMMY MODE)');
     console.log('   Mobile:', mobileFormatted);
     console.log('   Message length:', msg.length);
+    console.log('   Interview Code:', interviewCode);
     
-    // IMPORTANT: Use HTTPS endpoint (PHP uses HTTPS, not HTTP!)
-    const sendUrl = 'https://api.iconicsolution.co.in/wapp/v2/api/send';
+    // Check if DUMMY mode is enabled (set WHATSAPP_DUMMY=true in .env for testing)
+    const isDummyMode = process.env.WHATSAPP_DUMMY === 'true';
     
-    try {
-      // Use URLSearchParams to match PHP's CURLOPT_POSTFIELDS behavior
-      const params = new URLSearchParams();
-      params.append('apikey', iconicKey);
-      params.append('mobile', mobileFormatted);
-      params.append('msg', msg);
+    if (isDummyMode) {
+      // DUMMY MODE: Simulate successful WhatsApp send
+      console.log('🧪 DUMMY MODE ENABLED - Simulating successful WhatsApp send');
+      console.log('📝 Message preview:\n', msg.substring(0, 200) + '...');
       
-      const sendRes = await axios.post(sendUrl, params.toString(), { 
-        headers: { 
-          'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        timeout: 15000
-      });
+      whatsappResponse = {
+        status: 'success',
+        statuscode: 200,
+        msg: 'Message sent successfully (DUMMY)',
+        messageId: `dummy_msg_${Date.now()}`,
+        mobile: mobileFormatted,
+        timestamp: new Date().toISOString()
+      };
       
-      whatsappResponse = sendRes.data;
-      console.log(`✅ WhatsApp API response:`, whatsappResponse);
+      finalStatus = 'sent';
+      console.log(`✅ WhatsApp sent successfully (DUMMY MODE)!`);
+    } else {
+      // REAL MODE: Use PHP proxy endpoint
+      const proxyUrl = process.env.WHATSAPP_PROXY_URL || 'https://astrovaani.com/apis/whatsapp_proxy.php';
       
-      // Check for success
-      if (whatsappResponse && (whatsappResponse.status === 'success' || whatsappResponse.success === true || whatsappResponse.statuscode === 200 || whatsappResponse.statuscode === 2000)) {
-        finalStatus = 'sent';
-        console.log(`✅ WhatsApp sent successfully!`);
-      } else {
-        console.warn(`⚠️ WhatsApp API returned non-success status:`, whatsappResponse);
+      try {
+        console.log('🔄 Calling PHP proxy at:', proxyUrl);
+        
+        const sendRes = await axios.post(proxyUrl, { 
+          mobile: mobileFormatted,
+          msg: msg
+        }, { 
+          headers: { 
+            'Content-Type': 'application/json'
+          },
+          timeout: 30000
+        });
+        
+        whatsappResponse = sendRes.data;
+        console.log(`✅ WhatsApp API response:`, whatsappResponse);
+        
+        // Check for success
+        if (whatsappResponse && (whatsappResponse.status === 'success' || whatsappResponse.success === true || whatsappResponse.statuscode === 200 || whatsappResponse.statuscode === 2000)) {
+          finalStatus = 'sent';
+          console.log(`✅ WhatsApp sent successfully!`);
+        } else {
+          console.warn(`⚠️ WhatsApp API returned non-success status:`, whatsappResponse);
+        }
+      } catch (waErr) {
+        const errDetail = waErr?.response?.data || { message: waErr.message, code: waErr.code };
+        console.error(`❌ WhatsApp send error:`, errDetail);
+        whatsappResponse = errDetail;
       }
-    } catch (waErr) {
-      const errDetail = waErr?.response?.data || { message: waErr.message, code: waErr.code };
-      console.error(`❌ WhatsApp send error:`, errDetail);
-      whatsappResponse = errDetail;
     }
 
     // Log notification

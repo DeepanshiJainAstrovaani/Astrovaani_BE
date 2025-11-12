@@ -146,7 +146,7 @@ exports.getVendorSchedules = async (req, res) => {
   }
 };
 
-// Create proposed schedules for a vendor (append)
+// Create proposed schedules for a vendor (REPLACE, not append)
 exports.createVendorSchedules = async (req, res) => {
   try {
     const vendorId = req.params.id;
@@ -155,11 +155,13 @@ exports.createVendorSchedules = async (req, res) => {
     const vendor = await vendorModel.getVendorById(vendorId);
     if (!vendor) return res.status(404).json({ message: 'Vendor not found' });
 
-    // append slots
-    slots.forEach(slot => {
-      vendor.schedules = vendor.schedules || [];
-      vendor.schedules.push({ scheduledAt: slot.scheduledAt, duration: slot.duration, status: 'proposed' });
-    });
+    // REPLACE slots instead of appending (FIX: prevents duplicates)
+    vendor.schedules = slots.map(slot => ({
+      scheduledAt: slot.scheduledAt,
+      duration: slot.duration,
+      status: slot.status || 'proposed'
+    }));
+    
     await vendor.save();
     res.json({ proposed: vendor.schedules, confirmed: vendor.schedules.filter(s => s.status === 'confirmed') });
   } catch (error) {
@@ -187,20 +189,13 @@ exports.notifyVendorSlots = async (req, res) => {
     const interviewCode = `ASTROVAANI-${dr}`;
     vendor.interviewcode = interviewCode;
 
-    // If frontend provided slots or a meeting link with the notify request, append them as proposed schedules
-    const providedSlots = Array.isArray(req.body && req.body.slots) ? req.body.slots : [];
+    // If frontend provided slots or a meeting link with the notify request, DON'T append them again
+    // They are already saved via createVendorSchedules, so just use existing vendor.schedules
+    const providedSlots = vendor.schedules || [];
     const providedMeetLink = req.body && req.body.meetLink ? String(req.body.meetLink).trim() : '';
 
-    if (providedSlots.length > 0) {
-      vendor.schedules = vendor.schedules || [];
-      providedSlots.forEach(slot => {
-        const scheduledAt = slot.scheduledAt ? new Date(slot.scheduledAt) : null;
-        const duration = slot.duration ? Number(slot.duration) : (slot.duration === 0 ? 0 : null);
-        const scheduleObj = { scheduledAt, duration, status: 'proposed' };
-        if (providedMeetLink) scheduleObj.meetLink = providedMeetLink;
-        vendor.schedules.push(scheduleObj);
-      });
-    }
+    // DON'T push slots again - they're already in vendor.schedules from saveSlots
+    // This prevents duplication when clicking "Notify Vendor"
 
     // Save vendor with new interview code and any proposed slots
     await vendor.save();
@@ -340,5 +335,36 @@ exports.notifyVendorSlots = async (req, res) => {
   } catch (error) {
     console.error('Error notifying vendor:', error?.response?.data || error.message || error);
     res.status(500).json({ message: 'Notification error', error: error?.response?.data || error.message });
+  }
+};
+
+// Delete a specific schedule for a vendor
+exports.deleteVendorSchedule = async (req, res) => {
+  try {
+    const vendorId = req.params.id;
+    const scheduleId = req.params.scheduleId;
+    
+    const vendor = await vendorModel.getVendorById(vendorId);
+    if (!vendor) return res.status(404).json({ message: 'Vendor not found' });
+
+    // Remove the schedule by _id
+    const initialLength = vendor.schedules.length;
+    vendor.schedules = vendor.schedules.filter(
+      schedule => schedule._id.toString() !== scheduleId
+    );
+
+    if (vendor.schedules.length === initialLength) {
+      return res.status(404).json({ message: 'Schedule not found' });
+    }
+
+    await vendor.save();
+    res.json({ 
+      message: 'Schedule removed successfully',
+      proposed: vendor.schedules,
+      confirmed: vendor.schedules.filter(s => s.status === 'confirmed')
+    });
+  } catch (error) {
+    console.error('Error deleting schedule:', error);
+    res.status(500).json({ message: 'Database error', error: error.message });
   }
 };

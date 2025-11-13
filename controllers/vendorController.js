@@ -267,28 +267,32 @@ exports.notifyVendorSlots = async (req, res) => {
       finalStatus = 'sent';
       console.log(`✅ WhatsApp sent successfully (DUMMY MODE)!`);
     } else {
-      // REAL MODE: Use working IconicSolution endpoint
-      // Try the endpoint that works for customer bookings
-      const whatsappApiUrl = 'https://wa.iconicsolution.co.in/wapp/api/send';
+      // REAL MODE: Use template-based API (same as customer_frontend)
+      const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
       const apiKey = process.env.ICONIC_API_KEY;
+      const templateName = process.env.WHATSAPP_TEMPLATE_NAME || 'vendor_interview_notification';
       
       if (!apiKey) {
         console.error('❌ ICONIC_API_KEY not found in .env');
         whatsappResponse = { error: 'API key not configured' };
       } else {
         try {
-          console.log('🔄 Calling WhatsApp API');
+          console.log('🔄 Calling WhatsApp API (Template-based)');
           console.log('   URL:', whatsappApiUrl);
+          console.log('   Template:', templateName);
           console.log('   Mobile:', mobileFormatted);
           console.log('   API Key:', apiKey.substring(0, 8) + '...');
-          console.log('   Message length:', msg.length);
           
-          // IconicSolution API uses POST method with form data (same as PHP)
+          // Use template-based API (same as customer_frontend)
           const FormData = require('form-data');
           const formData = new FormData();
           formData.append('apikey', apiKey);
           formData.append('mobile', mobileFormatted);
-          formData.append('msg', msg);
+          formData.append('templatename', templateName);
+          
+          // Format variables for template: vendor name and booking link
+          const templateVars = [name, link];
+          formData.append('dvariables', JSON.stringify(templateVars));
           
           const sendRes = await axios.post(whatsappApiUrl, formData, { 
             headers: formData.getHeaders(),

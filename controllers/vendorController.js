@@ -283,13 +283,15 @@ exports.notifyVendorSlots = async (req, res) => {
           console.log('   API Key:', apiKey.substring(0, 8) + '...');
           console.log('   Message length:', msg.length);
           
-          // IconicSolution API uses GET method with query parameters
-          const sendRes = await axios.get(whatsappApiUrl, { 
-            params: {
-              apikey: apiKey,
-              mobile: mobileFormatted,
-              msg: msg
-            },
+          // IconicSolution API uses POST method with form data (same as PHP)
+          const FormData = require('form-data');
+          const formData = new FormData();
+          formData.append('apikey', apiKey);
+          formData.append('mobile', mobileFormatted);
+          formData.append('msg', msg);
+          
+          const sendRes = await axios.post(whatsappApiUrl, formData, { 
+            headers: formData.getHeaders(),
             timeout: 30000
           });
           

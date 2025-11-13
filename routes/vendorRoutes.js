@@ -46,6 +46,13 @@ router.put('/:id', photoUpload, vendorController.updateVendor);
 // DELETE /api/vendors/:id
 router.delete('/:id', vendorController.deleteVendor);
 
+// ==================== PUBLIC INTERVIEW ROUTES ====================
+// These routes are public (no authentication) for vendor interview selection
 
+// GET /api/vendors/interview/:code - Get interview details by code
+router.get('/interview/:code', vendorController.getInterviewByCode);
+
+// POST /api/vendors/interview/:code/select - Select an interview slot
+router.post('/interview/:code/select', vendorController.selectInterviewSlot);
 
 module.exports = router;

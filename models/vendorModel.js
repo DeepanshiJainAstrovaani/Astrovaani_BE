@@ -54,3 +54,12 @@ exports.getVendorsByCategory = async (category) => {
     throw error;
   }
 };
+
+// Get vendor by interview code (for public interview selection page)
+exports.getVendorByInterviewCode = async (interviewCode) => {
+  try {
+    return await Vendor.findOne({ interviewcode: interviewCode });
+  } catch (error) {
+    throw error;
+  }
+};

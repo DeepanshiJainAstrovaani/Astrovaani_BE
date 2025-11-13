@@ -266,18 +266,19 @@ exports.notifyVendorSlots = async (req, res) => {
       finalStatus = 'sent';
       console.log(`✅ WhatsApp sent successfully (DUMMY MODE)!`);
     } else {
-      // REAL MODE: Use PHP proxy endpoint
-      const proxyUrl = process.env.WHATSAPP_PROXY_URL || 'https://astrovaani.com/apis/whatsapp_proxy.php';
+      // REAL MODE: Use working API domain from customer frontend
+      const whatsappApiUrl = 'https://wa.iconicsolution.co.in/wapp/api/send';
       
       try {
-        console.log('🔄 Calling PHP proxy at:', proxyUrl);
+        console.log('🔄 Calling WhatsApp API at:', whatsappApiUrl);
+        console.log('   Mobile:', mobileFormatted);
+        console.log('   API Key:', iconicKey.substring(0, 8) + '...');
         
-        const sendRes = await axios.post(proxyUrl, { 
-          mobile: mobileFormatted,
-          msg: msg
-        }, { 
-          headers: { 
-            'Content-Type': 'application/json'
+        const sendRes = await axios.post(whatsappApiUrl, 
+          `apikey=${iconicKey}&mobile=${mobileFormatted}&msg=${encodeURIComponent(msg)}`,
+          { 
+            headers: { 
+              'Content-Type': 'application/x-www-form-urlencoded'
           },
           timeout: 30000
         });

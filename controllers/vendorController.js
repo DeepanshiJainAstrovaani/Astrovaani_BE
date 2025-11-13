@@ -270,7 +270,8 @@ exports.notifyVendorSlots = async (req, res) => {
       // REAL MODE: Use template-based API (same as customer_frontend)
       const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
       const apiKey = process.env.ICONIC_API_KEY;
-      const templateName = process.env.WHATSAPP_TEMPLATE_NAME || 'vendor_interview_notification';
+      // Template name from IconicSolution dashboard (approved template)
+      const templateName = 'vendor_interview_notification_';
       
       if (!apiKey) {
         console.error('❌ ICONIC_API_KEY not found in .env');
@@ -279,7 +280,9 @@ exports.notifyVendorSlots = async (req, res) => {
         try {
           console.log('🔄 Calling WhatsApp API (Template-based)');
           console.log('   URL:', whatsappApiUrl);
-          console.log('   Template:', templateName);
+          console.log('   📝 Template Name:', templateName);
+          console.log('   📝 Template Name Length:', templateName.length);
+          console.log('   📝 Template Name (JSON):', JSON.stringify(templateName));
           console.log('   Mobile:', mobileFormatted);
           console.log('   API Key:', apiKey.substring(0, 8) + '...');
           
@@ -293,6 +296,13 @@ exports.notifyVendorSlots = async (req, res) => {
           // Format variables for template: vendor name and booking link
           const templateVars = [name, link];
           formData.append('dvariables', JSON.stringify(templateVars));
+          
+          // DEBUG: Log all FormData fields
+          console.log('📦 FormData being sent:');
+          console.log('   - apikey:', apiKey.substring(0, 8) + '...');
+          console.log('   - mobile:', mobileFormatted);
+          console.log('   - templatename:', JSON.stringify(templateName));
+          console.log('   - dvariables:', JSON.stringify(templateVars));
           
           const sendRes = await axios.post(whatsappApiUrl, formData, { 
             headers: formData.getHeaders(),

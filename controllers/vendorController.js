@@ -269,7 +269,7 @@ exports.notifyVendorSlots = async (req, res) => {
     } else {
       // REAL MODE: Use working IconicSolution endpoint
       // Try the endpoint that works for customer bookings
-      const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/v2/send';
+      const whatsappApiUrl = 'https://wa.iconicsolution.co.in/wapp/api/send';
       const apiKey = process.env.ICONIC_API_KEY;
       
       if (!apiKey) {

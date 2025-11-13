@@ -125,6 +125,6 @@ const vendorSchema = new mongoose.Schema({
 vendorSchema.index({ category: 1 });
 vendorSchema.index({ is_available: 1 });
 
-const Vendor = mongoose.model('Vendor', vendorSchema);
+const Vendor = mongoose.model('Vendor', vendorSchema, 'community');
 
 module.exports = Vendor;

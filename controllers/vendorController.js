@@ -242,13 +242,13 @@ exports.notifyVendorSlots = async (req, res) => {
     let finalStatus = 'failed';
     
     // Send WhatsApp notification (DUMMY MODE for testing)
-    console.log('📱 Sending WhatsApp notification (DUMMY MODE)');
+    console.log('📱 Sending WhatsApp notification');
     console.log('   Mobile:', mobileFormatted);
     console.log('   Message length:', msg.length);
     console.log('   Interview Code:', interviewCode);
     
-    // Check if DUMMY mode is enabled (set WHATSAPP_DUMMY=true in .env for testing)
-    const isDummyMode = process.env.WHATSAPP_DUMMY === 'true';
+    // HARDCODED: Set to true for testing, false once template is approved
+    const isDummyMode = true; // Change to false once WhatsApp template is approved
     
     if (isDummyMode) {
       // DUMMY MODE: Simulate successful WhatsApp send

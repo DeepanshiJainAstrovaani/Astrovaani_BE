@@ -19,6 +19,18 @@ router.get('/', vendorController.getAllVendors);
 // GET /api/vendors/filter?category=:category
 router.get('/filter', vendorController.getVendorsByCategory);
 
+// ==================== PUBLIC INTERVIEW ROUTES ====================
+// These routes MUST come before /:id routes to avoid conflicts
+// These routes are public (no authentication) for vendor interview selection
+
+// GET /api/vendors/interview/:code - Get interview details by code
+router.get('/interview/:code', vendorController.getInterviewByCode);
+
+// POST /api/vendors/interview/:code/select - Select an interview slot
+router.post('/interview/:code/select', vendorController.selectInterviewSlot);
+
+// ==================== VENDOR CRUD ROUTES ====================
+
 // POST /api/vendors
 router.post('/', photoUpload, vendorController.createVendor);
 
@@ -38,7 +50,7 @@ router.delete('/:id/schedules', vendorController.clearAllVendorSchedules);
 router.delete('/:id/schedules/:scheduleId', vendorController.deleteVendorSchedule);
 
 // POST /api/vendors/:id/notify
-router.post('/:id/notify', vendorController.notifyVendorSlots);
+router.post('/:id/notify-slots', vendorController.notifyVendorSlots);
 
 // PUT /api/vendors/:id
 router.put('/:id', photoUpload, vendorController.updateVendor);
@@ -46,13 +58,22 @@ router.put('/:id', photoUpload, vendorController.updateVendor);
 // DELETE /api/vendors/:id
 router.delete('/:id', vendorController.deleteVendor);
 
-// ==================== PUBLIC INTERVIEW ROUTES ====================
-// These routes are public (no authentication) for vendor interview selection
+// ==================== INTERVIEW MANAGEMENT ROUTES ====================
+// Admin routes for managing interviews
 
-// GET /api/vendors/interview/:code - Get interview details by code
-router.get('/interview/:code', vendorController.getInterviewByCode);
+// POST /api/vendors/:id/send-link - Send meeting link
+router.post('/:id/send-link', vendorController.sendMeetingLink);
 
-// POST /api/vendors/interview/:code/select - Select an interview slot
-router.post('/interview/:code/select', vendorController.selectInterviewSlot);
+// POST /api/vendors/:id/notify - Send interview reminder (for scheduled)
+router.post('/:id/notify', vendorController.notifyVendor);
+
+// POST /api/vendors/:id/reminder - Send reminder to select slot (for pending)
+router.post('/:id/reminder', vendorController.sendReminder);
+
+// POST /api/vendors/:id/schedule - Schedule interview slots
+router.post('/:id/schedule', vendorController.scheduleInterview);
+
+// POST /api/vendors/:id/cancel-interview - Cancel interview
+router.post('/:id/cancel-interview', vendorController.cancelInterview);
 
 module.exports = router;

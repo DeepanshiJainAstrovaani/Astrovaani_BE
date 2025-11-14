@@ -97,7 +97,8 @@ const vendorSchema = new mongoose.Schema({
   },
   // Interview metadata
   interviewerid: { type: String, trim: true },
-  interviewcode: { type: String, trim: true }
+  interviewcode: { type: String, trim: true },
+  onboardingstatus: { type: String, trim: true } // New field for tracking onboarding status
 }, {
   timestamps: true,
   collection: 'community', // Use 'community' as collection name to match your MySQL table

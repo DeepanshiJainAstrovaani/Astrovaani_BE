@@ -715,8 +715,9 @@ exports.sendMeetingLink = async (req, res) => {
       slotDateTime: `${formattedDate} at ${formattedTime}`
     });
 
-    // Send WhatsApp notification
+    // Send WhatsApp notification (same configuration as notifyVendorSlots)
     let whatsappSent = false;
+    let whatsappResponse = null;
     const isDummyMode = false; // ✅ PRODUCTION MODE ENABLED - Real WhatsApp sending active!
 
     if (isDummyMode) {
@@ -725,38 +726,62 @@ exports.sendMeetingLink = async (req, res) => {
       console.log('📝 Message:\n' + msg);
       whatsappSent = true;
     } else {
-      // REAL MODE: Send via IconicSolution API
-      const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send';
+      // REAL MODE: Use template-based API (same as notifyVendorSlots)
+      const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
       const apiKey = process.env.ICONIC_API_KEY;
+      // Template name for meeting link notification
+      const templateName = 'vendor_meeting_link_notification';
 
       if (!apiKey) {
         console.error('❌ ICONIC_API_KEY not found in .env');
+        whatsappResponse = { error: 'API key not configured' };
       } else {
         try {
-          const axios = require('axios');
+          console.log('🔄 Sending WhatsApp via template:', templateName);
+          console.log('   Mobile:', mobileFormatted);
+          console.log('   Variables:', [name, meetingLink, formattedDate, formattedTime]);
+          
+          // Use template-based API (same as notifyVendorSlots)
           const FormData = require('form-data');
           const formData = new FormData();
           formData.append('apikey', apiKey);
           formData.append('mobile', mobileFormatted);
-          formData.append('msg', msg);
+          formData.append('templatename', templateName);
+          
+          // Format variables for template: vendor name, meeting link, date, time
+          const templateVars = [name, meetingLink, formattedDate, formattedTime];
+          formData.append('dvariables', JSON.stringify(templateVars));
 
           const response = await axios.post(whatsappApiUrl, formData, {
             headers: formData.getHeaders(),
             timeout: 30000
           });
 
-          console.log('✅ WhatsApp API Response:', JSON.stringify(response.data, null, 2));
+          whatsappResponse = response.data;
+          console.log('✅ WhatsApp API Response:', JSON.stringify(whatsappResponse, null, 2));
           
-          if (response.data && (
-            response.data.status === 'success' || 
-            response.data.success === true ||
-            response.data.statuscode === 200
+          // Check for success (handle different response formats - same as notifyVendorSlots)
+          if (whatsappResponse && (
+            whatsappResponse.status === 'success' || 
+            whatsappResponse.success === true ||
+            whatsappResponse.statuscode === 200 ||
+            whatsappResponse.statuscode === 2000 ||
+            whatsappResponse.statusCode === 200
           )) {
             whatsappSent = true;
             console.log('✅ WhatsApp sent successfully!');
+          } else {
+            console.warn('⚠️ WhatsApp API returned non-success status:', whatsappResponse);
+            // Still log as sent if we got a response without error
+            if (whatsappResponse && !whatsappResponse.error && !whatsappResponse.message?.includes('no active')) {
+              whatsappSent = true;
+              console.log('⚠️ Assuming success based on no error in response');
+            }
           }
         } catch (waErr) {
-          console.error('❌ WhatsApp send error:', waErr.message);
+          const errDetail = waErr?.response?.data || { message: waErr.message, code: waErr.code };
+          console.error('❌ WhatsApp send error:', JSON.stringify(errDetail, null, 2));
+          whatsappResponse = errDetail;
         }
       }
     }

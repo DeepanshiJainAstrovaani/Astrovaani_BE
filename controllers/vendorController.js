@@ -717,7 +717,7 @@ exports.sendMeetingLink = async (req, res) => {
 
     // Send WhatsApp notification
     let whatsappSent = false;
-    const isDummyMode = true; // Set to false when API credentials are configured
+    const isDummyMode = false; // ✅ PRODUCTION MODE ENABLED - Real WhatsApp sending active!
 
     if (isDummyMode) {
       console.log('🧪 DUMMY MODE - WhatsApp message preview:');

@@ -98,7 +98,13 @@ const vendorSchema = new mongoose.Schema({
   // Interview metadata
   interviewerid: { type: String, trim: true },
   interviewcode: { type: String, trim: true },
-  onboardingstatus: { type: String, trim: true } // New field for tracking onboarding status
+  onboardingstatus: { type: String, trim: true }, // New field for tracking onboarding status
+  
+  // Interview feedback fields
+  interviewRating: { type: String, trim: true }, // Rating given during interview (1-5)
+  interviewNotes: { type: String, trim: true }, // Notes from the interview
+  interviewStatus: { type: String, trim: true, default: 'completed' }, // completed | no-show | rescheduled
+  interviewCompletedAt: { type: Date } // Timestamp when interview feedback was saved
 }, {
   timestamps: true,
   collection: 'community', // Use 'community' as collection name to match your MySQL table

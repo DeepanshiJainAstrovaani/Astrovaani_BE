@@ -827,7 +827,7 @@ exports.notifyVendor = async (req, res) => {
       });
     }
 
-    // Send WhatsApp notification reminder using IconicSolution API
+    // Send WhatsApp notification reminder using template-based API
     const name = (vendor.name || '').trim();
     const mobile = (vendor.phone || vendor.whatsapp || '').replace(/\s+/g, '');
     
@@ -838,61 +838,103 @@ exports.notifyVendor = async (req, res) => {
       });
     }
 
+    // Normalize mobile to include country code
+    const normalizeMobile = (raw) => {
+      if (!raw) return raw;
+      let digits = raw.replace(/[^0-9]/g, '');
+      if (digits.length === 10) digits = '91' + digits;
+      if (digits.length === 11 && digits.startsWith('0')) digits = '91' + digits.slice(1);
+      return digits;
+    };
+    
+    const mobileFormatted = normalizeMobile(mobile);
+
     // Format interview time
     const interviewDate = new Date(confirmedSlot.scheduledAt);
-    const formattedDate = interviewDate.toLocaleString('en-GB', {
+    const formattedDate = interviewDate.toLocaleDateString('en-GB', {
       day: '2-digit',
-      month: 'long',
-      year: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    });
+    const formattedTime = interviewDate.toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
       hour12: true
     });
-
-    // Build WhatsApp message
-    const meetingLink = confirmedSlot.meetingLink || '';
-    const meetText = meetingLink ? `\n\n*Meeting Link:* ${meetingLink}` : '';
-    
-    const msg = `*Dear ${name}*,\n\nThis is a reminder about your upcoming interview with *Astrovaani*.\n\n*Interview Details:*\n📅 Date & Time: ${formattedDate}\n⏱️ Duration: ${confirmedSlot.duration || 30} minutes${meetText}\n\nPlease be available and prepared at the scheduled time. Make sure you have a stable internet connection and are in a quiet environment.\n\nIf you have any questions or need to reschedule, please contact us at support@astrovaani.com\n\n*Note:* If you're unable to click on the link, please save this number in your contacts, and the link will become clickable.\n\nWe look forward to speaking with you!`;
-
-    // IconicSolution API configuration
-    const iconicKey = process.env.ICONIC_API_KEY || '0bf9865d140d4676b28be02813fbf1c8';
-    const normalizedMobile = mobile.startsWith('91') ? mobile : `91${mobile}`;
+    const duration = confirmedSlot.duration || 30;
+    const meetingLink = confirmedSlot.meetLink || confirmedSlot.meetingLink || '';
 
     console.log('📲 Sending interview reminder:', {
       vendorName: vendor.name,
       scheduledAt: confirmedSlot.scheduledAt,
-      phone: normalizedMobile,
+      phone: mobileFormatted,
       meetingLink: meetingLink || 'Not provided'
     });
 
-    // Send WhatsApp message via IconicSolution API
-    try {
-      const whatsappResponse = await axios.post(
-        'https://api.imiconnect.in/resources/v1/messaging',
-        {
-          deliverychannel: 'whatsapp',
-          destination: [{ waid: [normalizedMobile] }],
-          message: { text: msg }
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'key': iconicKey
+    // Send WhatsApp message via template-based API (same as notifyVendorSlots)
+    let whatsappSent = false;
+    let whatsappResponse = null;
+    const isDummyMode = false;
+
+    if (isDummyMode) {
+      console.log('🧪 DUMMY MODE - Simulating WhatsApp send');
+      whatsappSent = true;
+    } else {
+      const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
+      const apiKey = process.env.ICONIC_API_KEY;
+      const templateName = 'vendor_interview_reminder';
+
+      if (!apiKey) {
+        console.error('❌ ICONIC_API_KEY not found in .env');
+      } else {
+        try {
+          console.log('� Sending WhatsApp via template:', templateName);
+          console.log('   Mobile:', mobileFormatted);
+          console.log('   Variables:', [name, formattedDate, formattedTime, duration, meetingLink]);
+          
+          const FormData = require('form-data');
+          const formData = new FormData();
+          formData.append('apikey', apiKey);
+          formData.append('mobile', mobileFormatted);
+          formData.append('templatename', templateName);
+          
+          // Template variables: name, date, time, duration, meeting link
+          const templateVars = [name, formattedDate, formattedTime, duration.toString(), meetingLink];
+          formData.append('dvariables', JSON.stringify(templateVars));
+
+          const response = await axios.post(whatsappApiUrl, formData, {
+            headers: formData.getHeaders(),
+            timeout: 30000
+          });
+
+          whatsappResponse = response.data;
+          console.log('✅ WhatsApp API Response:', JSON.stringify(whatsappResponse, null, 2));
+          
+          if (whatsappResponse && (
+            whatsappResponse.status === 'success' || 
+            whatsappResponse.success === true ||
+            whatsappResponse.statuscode === 200 ||
+            whatsappResponse.statuscode === 2000 ||
+            whatsappResponse.statusCode === 200
+          )) {
+            whatsappSent = true;
+            console.log('✅ WhatsApp sent successfully!');
+          } else {
+            console.warn('⚠️ WhatsApp API returned non-success status:', whatsappResponse);
           }
+        } catch (waErr) {
+          const errDetail = waErr?.response?.data || { message: waErr.message, code: waErr.code };
+          console.error('❌ WhatsApp send error:', JSON.stringify(errDetail, null, 2));
+          whatsappResponse = errDetail;
         }
-      );
-
-      console.log('✅ WhatsApp reminder sent successfully:', whatsappResponse.data);
-
-    } catch (whatsappError) {
-      console.error('❌ WhatsApp API error:', whatsappError.response?.data || whatsappError.message);
-      // Continue even if WhatsApp fails - don't block the response
+      }
     }
 
     res.json({
       success: true,
-      message: 'Interview reminder sent successfully'
+      message: whatsappSent 
+        ? 'Interview reminder sent successfully' 
+        : 'Failed to send reminder (check logs)'
     });
 
   } catch (error) {
@@ -926,18 +968,101 @@ exports.sendReminder = async (req, res) => {
       });
     }
 
-    // TODO: Send WhatsApp reminder with interview link
-    const interviewLink = `${process.env.FRONTEND_URL}/vendor-interview?code=${vendor.interviewcode}`;
+    // Send WhatsApp reminder with interview link
+    const baseUrl = process.env.SITE_BASE_URL || 'https://astrovaani.com';
+    const interviewLink = `${baseUrl}/interview?code=${encodeURIComponent(vendor.interviewcode)}`;
     
-    console.log('📲 Sending reminder:', {
+    const name = (vendor.name || '').trim();
+    const mobile = (vendor.phone || vendor.whatsapp || '').replace(/\s+/g, '');
+    
+    if (!mobile) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Vendor mobile number not available' 
+      });
+    }
+
+    // Normalize mobile to include country code
+    const normalizeMobile = (raw) => {
+      if (!raw) return raw;
+      let digits = raw.replace(/[^0-9]/g, '');
+      if (digits.length === 10) digits = '91' + digits;
+      if (digits.length === 11 && digits.startsWith('0')) digits = '91' + digits.slice(1);
+      return digits;
+    };
+    
+    const mobileFormatted = normalizeMobile(mobile);
+    
+    console.log('📲 Sending slot selection reminder:', {
       vendorName: vendor.name,
       interviewLink,
-      phone: vendor.whatsapp || vendor.phone
+      phone: mobileFormatted
     });
+
+    // Send WhatsApp message via template-based API (same as notifyVendorSlots)
+    let whatsappSent = false;
+    let whatsappResponse = null;
+    const isDummyMode = false;
+
+    if (isDummyMode) {
+      console.log('🧪 DUMMY MODE - Simulating WhatsApp send');
+      whatsappSent = true;
+    } else {
+      const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
+      const apiKey = process.env.ICONIC_API_KEY;
+      const templateName = 'vendor_slot_selection_reminder';
+
+      if (!apiKey) {
+        console.error('❌ ICONIC_API_KEY not found in .env');
+      } else {
+        try {
+          console.log('🔄 Sending WhatsApp via template:', templateName);
+          console.log('   Mobile:', mobileFormatted);
+          console.log('   Variables:', [name, interviewLink]);
+          
+          const FormData = require('form-data');
+          const formData = new FormData();
+          formData.append('apikey', apiKey);
+          formData.append('mobile', mobileFormatted);
+          formData.append('templatename', templateName);
+          
+          // Template variables: name, interview link
+          const templateVars = [name, interviewLink];
+          formData.append('dvariables', JSON.stringify(templateVars));
+
+          const response = await axios.post(whatsappApiUrl, formData, {
+            headers: formData.getHeaders(),
+            timeout: 30000
+          });
+
+          whatsappResponse = response.data;
+          console.log('✅ WhatsApp API Response:', JSON.stringify(whatsappResponse, null, 2));
+          
+          if (whatsappResponse && (
+            whatsappResponse.status === 'success' || 
+            whatsappResponse.success === true ||
+            whatsappResponse.statuscode === 200 ||
+            whatsappResponse.statuscode === 2000 ||
+            whatsappResponse.statusCode === 200
+          )) {
+            whatsappSent = true;
+            console.log('✅ WhatsApp sent successfully!');
+          } else {
+            console.warn('⚠️ WhatsApp API returned non-success status:', whatsappResponse);
+          }
+        } catch (waErr) {
+          const errDetail = waErr?.response?.data || { message: waErr.message, code: waErr.code };
+          console.error('❌ WhatsApp send error:', JSON.stringify(errDetail, null, 2));
+          whatsappResponse = errDetail;
+        }
+      }
+    }
 
     res.json({
       success: true,
-      message: 'Reminder sent successfully'
+      message: whatsappSent 
+        ? 'Reminder sent successfully' 
+        : 'Failed to send reminder (check logs)'
     });
 
   } catch (error) {

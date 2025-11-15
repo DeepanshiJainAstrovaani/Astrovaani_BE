@@ -76,4 +76,13 @@ router.post('/:id/schedule', vendorController.scheduleInterview);
 // POST /api/vendors/:id/cancel-interview - Cancel interview
 router.post('/:id/cancel-interview', vendorController.cancelInterview);
 
+// ==================== AGREEMENT MANAGEMENT ROUTES ====================
+// Admin routes for managing vendor agreements
+
+// POST /api/vendors/:id/approve-agreement - Send agreement ready notification
+router.post('/:id/approve-agreement', vendorController.approveVendorForAgreement);
+
+// POST /api/vendors/:id/reject-agreement - Reject agreement with reason
+router.post('/:id/reject-agreement', vendorController.rejectVendorAgreement);
+
 module.exports = router;

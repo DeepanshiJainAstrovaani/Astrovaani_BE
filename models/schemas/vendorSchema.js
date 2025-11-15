@@ -104,7 +104,15 @@ const vendorSchema = new mongoose.Schema({
   interviewRating: { type: String, trim: true }, // Rating given during interview (1-5)
   interviewNotes: { type: String, trim: true }, // Notes from the interview
   interviewStatus: { type: String, trim: true, default: 'completed' }, // completed | no-show | rescheduled
-  interviewCompletedAt: { type: Date } // Timestamp when interview feedback was saved
+  interviewCompletedAt: { type: Date }, // Timestamp when interview feedback was saved
+  
+  // Agreement fields
+  agreementStatus: { type: String, trim: true }, // pending | approved | rejected
+  agreementSentAt: { type: Date }, // When agreement notification was sent
+  agreementRejectionReason: { type: String, trim: true }, // Reason for rejection
+  agreementRejectedAt: { type: Date }, // When agreement was rejected
+  agreementUploadedAt: { type: Date }, // When vendor uploaded signed agreement
+  agreementApprovedAt: { type: Date } // When admin approved the agreement
 }, {
   timestamps: true,
   collection: 'community', // Use 'community' as collection name to match your MySQL table

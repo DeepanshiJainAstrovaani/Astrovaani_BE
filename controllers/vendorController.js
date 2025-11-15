@@ -116,7 +116,7 @@ exports.updateVendor = async (req, res) => {
           try {
             const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
             const apiKey = process.env.ICONIC_API_KEY;
-            const templateName = 'interview_feedback_approved';
+            const templateName = 'vendor_interview_completed';
 
             if (!apiKey) {
               console.error('❌ ICONIC_API_KEY not found in .env');
@@ -378,28 +378,33 @@ exports.notifyVendorSlots = async (req, res) => {
       // REAL MODE: Use template-based API (same as customer_frontend)
       const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
       const apiKey = process.env.ICONIC_API_KEY;
-      // Template name from IconicSolution dashboard (approved template)
-      const templateName = 'vendor_interview_notification_';
+      // NEW: Template with "Schedule Interview" button
+      const templateName = 'vendor_schedule_interview_button';
       
       if (!apiKey) {
         console.error('❌ ICONIC_API_KEY not found in .env');
         whatsappResponse = { error: 'API key not configured' };
       } else {
         try {
-          console.log('🔄 Sending WhatsApp via template:', templateName);
+          console.log('🔄 Sending WhatsApp via template (with button):', templateName);
           console.log('   Mobile:', mobileFormatted);
-          console.log('   Variables:', [name, link]);
+          console.log('   Variables:', [name]);
+          console.log('   Button URL:', link);
           
-          // Use template-based API (same as customer_frontend)
           const FormData = require('form-data');
           const formData = new FormData();
           formData.append('apikey', apiKey);
           formData.append('mobile', mobileFormatted);
           formData.append('templatename', templateName);
           
-          // Format variables for template: vendor name and booking link
-          const templateVars = [name, link];
+          // Template variables: vendor name only
+          const templateVars = [name];
           formData.append('dvariables', JSON.stringify(templateVars));
+          
+          // Add button with interview booking link
+          // Note: Button URL format may vary based on IconicSolution API
+          const buttonData = [{ type: 'url', url: link }];
+          formData.append('buttons', JSON.stringify(buttonData));
           
           const sendRes = await axios.post(whatsappApiUrl, formData, { 
             headers: formData.getHeaders(),
@@ -834,31 +839,43 @@ exports.sendMeetingLink = async (req, res) => {
       console.log('📝 Message:\n' + msg);
       whatsappSent = true;
     } else {
-      // REAL MODE: Use template-based API (same as notifyVendorSlots)
+      // REAL MODE: Use template-based API with button for meeting link
       const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
       const apiKey = process.env.ICONIC_API_KEY;
-      // Template name for meeting link notification
-      const templateName = 'vendor_meeting_link_notification';
+      // NEW: Template with "Join Interview" button
+      const templateName = 'vendor_meeting_link_with_button';
+      
+      // Get interviewer name (default to "Admin" if not set)
+      const interviewerName = vendor.interviewerid || 'Admin';
+      
+      // Format timing for template
+      const formattedTiming = `${formattedDate} at ${formattedTime}`;
 
       if (!apiKey) {
         console.error('❌ ICONIC_API_KEY not found in .env');
         whatsappResponse = { error: 'API key not configured' };
       } else {
         try {
-          console.log('🔄 Sending WhatsApp via template:', templateName);
+          console.log('🔄 Sending WhatsApp via template (with button):', templateName);
           console.log('   Mobile:', mobileFormatted);
-          console.log('   Variables:', [name, meetingLink, formattedDate, formattedTime]);
+          console.log('   Variables:', [name, interviewerName, formattedTiming]);
+          console.log('   Button URL:', meetingLink);
           
-          // Use template-based API (same as notifyVendorSlots)
           const FormData = require('form-data');
           const formData = new FormData();
           formData.append('apikey', apiKey);
           formData.append('mobile', mobileFormatted);
           formData.append('templatename', templateName);
           
-          // Format variables for template: vendor name, meeting link, date, time
-          const templateVars = [name, meetingLink, formattedDate, formattedTime];
+          // Template variables: vendor name, interviewer name, interview timing
+          const templateVars = [name, interviewerName, formattedTiming];
           formData.append('dvariables', JSON.stringify(templateVars));
+          
+          // Add button with meeting link
+          // Note: Button URL format may vary based on IconicSolution API
+          // Check their documentation for exact format
+          const buttonData = [{ type: 'url', url: meetingLink }];
+          formData.append('buttons', JSON.stringify(buttonData));
 
           const response = await axios.post(whatsappApiUrl, formData, {
             headers: formData.getHeaders(),
@@ -1262,22 +1279,121 @@ exports.cancelInterview = async (req, res) => {
       });
     }
 
+    // Send rejection WhatsApp notification before clearing data
+    const name = (vendor.name || '').trim();
+    const mobile = (vendor.phone || vendor.whatsapp || '').replace(/\s+/g, '');
+    
+    if (mobile) {
+      // Normalize mobile to include country code
+      const normalizeMobile = (raw) => {
+        if (!raw) return raw;
+        let digits = raw.replace(/[^0-9]/g, '');
+        if (digits.length === 10) digits = '91' + digits;
+        if (digits.length === 11 && digits.startsWith('0')) digits = '91' + digits.slice(1);
+        return digits;
+      };
+      
+      const mobileFormatted = normalizeMobile(mobile);
+      
+      // Send WhatsApp notification asynchronously
+      const sendRejectionNotification = async () => {
+        try {
+          const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
+          const apiKey = process.env.ICONIC_API_KEY;
+          const templateName = 'vendor_rejected_no_response';
+
+          if (!apiKey) {
+            console.error('❌ ICONIC_API_KEY not found in .env');
+            return;
+          }
+
+          console.log('🔄 Sending rejection WhatsApp via template:', templateName);
+          console.log('   Mobile:', mobileFormatted);
+          console.log('   Variables:', [name]);
+          
+          const FormData = require('form-data');
+          const formData = new FormData();
+          formData.append('apikey', apiKey);
+          formData.append('mobile', mobileFormatted);
+          formData.append('templatename', templateName);
+          
+          // Template variables: vendor name
+          const templateVars = [name];
+          formData.append('dvariables', JSON.stringify(templateVars));
+
+          const response = await axios.post(whatsappApiUrl, formData, {
+            headers: formData.getHeaders(),
+            timeout: 30000
+          });
+
+          const whatsappResponse = response.data;
+          console.log('✅ WhatsApp API Response:', JSON.stringify(whatsappResponse, null, 2));
+          
+          if (whatsappResponse && (
+            whatsappResponse.status === 'success' || 
+            whatsappResponse.success === true ||
+            whatsappResponse.statuscode === 200 ||
+            whatsappResponse.statuscode === 2000 ||
+            whatsappResponse.statusCode === 200
+          )) {
+            console.log('✅ Rejection notification sent successfully!');
+            
+            // Log notification
+            await Notification.create({ 
+              vendorId: vendor._id, 
+              type: 'whatsapp', 
+              payload: { mobile: mobileFormatted, templateName, variables: templateVars }, 
+              status: 'sent', 
+              providerResponse: whatsappResponse
+            });
+          } else {
+            console.warn('⚠️ WhatsApp API returned non-success status:', whatsappResponse);
+            await Notification.create({ 
+              vendorId: vendor._id, 
+              type: 'whatsapp', 
+              payload: { mobile: mobileFormatted, templateName, variables: templateVars }, 
+              status: 'failed', 
+              error: whatsappResponse
+            });
+          }
+        } catch (waErr) {
+          const errDetail = waErr?.response?.data || { message: waErr.message, code: waErr.code };
+          console.error('❌ WhatsApp send error:', JSON.stringify(errDetail, null, 2));
+          
+          // Log failed notification
+          await Notification.create({ 
+            vendorId: vendor._id, 
+            type: 'whatsapp', 
+            payload: { mobile: mobileFormatted, templateName: 'vendor_rejected_no_response' }, 
+            status: 'failed', 
+            error: errDetail
+          });
+        }
+      };
+
+      // Send notification asynchronously (don't wait for response)
+      sendRejectionNotification().catch(err => {
+        console.error('❌ Background WhatsApp notification failed:', err.message);
+      });
+    }
+
     // Clear schedules and interview data
     vendor.schedules = [];
     vendor.interviewcode = '';
     vendor.interviewerid = '';
-    vendor.onboardingstatus = '';
+    vendor.onboardingstatus = 'rejected';
+    vendor.status = 'rejected';
 
     await vendor.save();
 
-    console.log('✅ Interview cancelled:', {
+    console.log('✅ Interview cancelled and rejection notification sent:', {
       vendorId: vendor._id,
       vendorName: vendor.name
     });
 
     res.json({
       success: true,
-      message: 'Interview cancelled successfully'
+      message: 'Interview cancelled and vendor notified'
     });
 
   } catch (error) {
@@ -1285,6 +1401,303 @@ exports.cancelInterview = async (req, res) => {
     res.status(500).json({ 
       success: false,
       message: 'Error cancelling interview',
+      error: error.message 
+    });
+  }
+};
+
+// Approve vendor for agreement (send agreement ready notification)
+exports.approveVendorForAgreement = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { appDownloadLink } = req.body; // Optional app download link
+
+    const vendor = await vendorModel.getVendorById(id);
+    
+    if (!vendor) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Vendor not found' 
+      });
+    }
+
+    // Update vendor status
+    vendor.agreementStatus = 'pending';
+    vendor.agreementSentAt = new Date();
+    await vendor.save();
+
+    // Send WhatsApp notification with app link
+    const name = (vendor.name || '').trim();
+    const mobile = (vendor.phone || vendor.whatsapp || '').replace(/\s+/g, '');
+    
+    if (!mobile) {
+      console.warn('⚠️ No mobile number found for vendor');
+      return res.json({
+        success: true,
+        message: 'Agreement status updated but WhatsApp not sent (no phone number)'
+      });
+    }
+
+    // Normalize mobile to include country code
+    const normalizeMobile = (raw) => {
+      if (!raw) return raw;
+      let digits = raw.replace(/[^0-9]/g, '');
+      if (digits.length === 10) digits = '91' + digits;
+      if (digits.length === 11 && digits.startsWith('0')) digits = '91' + digits.slice(1);
+      return digits;
+    };
+    
+    const mobileFormatted = normalizeMobile(mobile);
+
+    console.log('📱 Sending agreement ready notification:', {
+      vendorName: vendor.name,
+      phone: mobileFormatted
+    });
+
+    // Send WhatsApp notification asynchronously
+    const sendAgreementNotification = async () => {
+      try {
+        const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
+        const apiKey = process.env.ICONIC_API_KEY;
+        const templateName = 'vendor_approved_agreement_ready';
+
+        if (!apiKey) {
+          console.error('❌ ICONIC_API_KEY not found in .env');
+          return;
+        }
+
+        console.log('🔄 Sending WhatsApp via template:', templateName);
+        console.log('   Mobile:', mobileFormatted);
+        console.log('   Variables:', [name]);
+        
+        const FormData = require('form-data');
+        const formData = new FormData();
+        formData.append('apikey', apiKey);
+        formData.append('mobile', mobileFormatted);
+        formData.append('templatename', templateName);
+        
+        // Template variables: vendor name
+        const templateVars = [name];
+        formData.append('dvariables', JSON.stringify(templateVars));
+
+        const response = await axios.post(whatsappApiUrl, formData, {
+          headers: formData.getHeaders(),
+          timeout: 30000
+        });
+
+        const whatsappResponse = response.data;
+        console.log('✅ WhatsApp API Response:', JSON.stringify(whatsappResponse, null, 2));
+        
+        if (whatsappResponse && (
+          whatsappResponse.status === 'success' || 
+          whatsappResponse.success === true ||
+          whatsappResponse.statuscode === 200 ||
+          whatsappResponse.statuscode === 2000 ||
+          whatsappResponse.statusCode === 200
+        )) {
+          console.log('✅ Agreement notification sent successfully!');
+          
+          // Log notification
+          await Notification.create({ 
+            vendorId: vendor._id, 
+            type: 'whatsapp', 
+            payload: { mobile: mobileFormatted, templateName, variables: templateVars }, 
+            status: 'sent', 
+            providerResponse: whatsappResponse
+          });
+        } else {
+          console.warn('⚠️ WhatsApp API returned non-success status:', whatsappResponse);
+          await Notification.create({ 
+            vendorId: vendor._id, 
+            type: 'whatsapp', 
+            payload: { mobile: mobileFormatted, templateName, variables: templateVars }, 
+            status: 'failed', 
+            error: whatsappResponse
+          });
+        }
+      } catch (waErr) {
+        const errDetail = waErr?.response?.data || { message: waErr.message, code: waErr.code };
+        console.error('❌ WhatsApp send error:', JSON.stringify(errDetail, null, 2));
+        
+        // Log failed notification
+        await Notification.create({ 
+          vendorId: vendor._id, 
+          type: 'whatsapp', 
+          payload: { mobile: mobileFormatted, templateName: 'vendor_approved_agreement_ready' }, 
+          status: 'failed', 
+          error: errDetail
+        });
+      }
+    };
+
+    // Send notification asynchronously
+    sendAgreementNotification().catch(err => {
+      console.error('❌ Background WhatsApp notification failed:', err.message);
+    });
+
+    res.json({
+      success: true,
+      message: 'Agreement ready notification sent successfully'
+    });
+
+  } catch (error) {
+    console.error('❌ Error approving vendor for agreement:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Error sending agreement notification',
+      error: error.message 
+    });
+  }
+};
+
+// Reject vendor agreement
+exports.rejectVendorAgreement = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    if (!reason) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Rejection reason is required' 
+      });
+    }
+
+    const vendor = await vendorModel.getVendorById(id);
+    
+    if (!vendor) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Vendor not found' 
+      });
+    }
+
+    // Update vendor status
+    vendor.agreementStatus = 'rejected';
+    vendor.agreementRejectionReason = reason;
+    vendor.agreementRejectedAt = new Date();
+    await vendor.save();
+
+    // Send WhatsApp notification
+    const name = (vendor.name || '').trim();
+    const mobile = (vendor.phone || vendor.whatsapp || '').replace(/\s+/g, '');
+    
+    if (!mobile) {
+      console.warn('⚠️ No mobile number found for vendor');
+      return res.json({
+        success: true,
+        message: 'Agreement rejected but WhatsApp not sent (no phone number)'
+      });
+    }
+
+    // Normalize mobile to include country code
+    const normalizeMobile = (raw) => {
+      if (!raw) return raw;
+      let digits = raw.replace(/[^0-9]/g, '');
+      if (digits.length === 10) digits = '91' + digits;
+      if (digits.length === 11 && digits.startsWith('0')) digits = '91' + digits.slice(1);
+      return digits;
+    };
+    
+    const mobileFormatted = normalizeMobile(mobile);
+
+    console.log('📱 Sending agreement rejection notification:', {
+      vendorName: vendor.name,
+      reason: reason,
+      phone: mobileFormatted
+    });
+
+    // Send WhatsApp notification asynchronously
+    const sendRejectionNotification = async () => {
+      try {
+        const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
+        const apiKey = process.env.ICONIC_API_KEY;
+        const templateName = 'vendor_agreement_rejected';
+
+        if (!apiKey) {
+          console.error('❌ ICONIC_API_KEY not found in .env');
+          return;
+        }
+
+        console.log('🔄 Sending WhatsApp via template:', templateName);
+        console.log('   Mobile:', mobileFormatted);
+        console.log('   Variables:', [name, reason]);
+        
+        const FormData = require('form-data');
+        const formData = new FormData();
+        formData.append('apikey', apiKey);
+        formData.append('mobile', mobileFormatted);
+        formData.append('templatename', templateName);
+        
+        // Template variables: vendor name, rejection reason
+        const templateVars = [name, reason];
+        formData.append('dvariables', JSON.stringify(templateVars));
+
+        const response = await axios.post(whatsappApiUrl, formData, {
+          headers: formData.getHeaders(),
+          timeout: 30000
+        });
+
+        const whatsappResponse = response.data;
+        console.log('✅ WhatsApp API Response:', JSON.stringify(whatsappResponse, null, 2));
+        
+        if (whatsappResponse && (
+          whatsappResponse.status === 'success' || 
+          whatsappResponse.success === true ||
+          whatsappResponse.statuscode === 200 ||
+          whatsappResponse.statuscode === 2000 ||
+          whatsappResponse.statusCode === 200
+        )) {
+          console.log('✅ Agreement rejection notification sent successfully!');
+          
+          // Log notification
+          await Notification.create({ 
+            vendorId: vendor._id, 
+            type: 'whatsapp', 
+            payload: { mobile: mobileFormatted, templateName, variables: templateVars }, 
+            status: 'sent', 
+            providerResponse: whatsappResponse
+          });
+        } else {
+          console.warn('⚠️ WhatsApp API returned non-success status:', whatsappResponse);
+          await Notification.create({ 
+            vendorId: vendor._id, 
+            type: 'whatsapp', 
+            payload: { mobile: mobileFormatted, templateName, variables: templateVars }, 
+            status: 'failed', 
+            error: whatsappResponse
+          });
+        }
+      } catch (waErr) {
+        const errDetail = waErr?.response?.data || { message: waErr.message, code: waErr.code };
+        console.error('❌ WhatsApp send error:', JSON.stringify(errDetail, null, 2));
+        
+        // Log failed notification
+        await Notification.create({ 
+          vendorId: vendor._id, 
+          type: 'whatsapp', 
+          payload: { mobile: mobileFormatted, templateName: 'vendor_agreement_rejected', reason }, 
+          status: 'failed', 
+          error: errDetail
+        });
+      }
+    };
+
+    // Send notification asynchronously
+    sendRejectionNotification().catch(err => {
+      console.error('❌ Background WhatsApp notification failed:', err.message);
+    });
+
+    res.json({
+      success: true,
+      message: 'Agreement rejection notification sent successfully'
+    });
+
+  } catch (error) {
+    console.error('❌ Error rejecting agreement:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Error rejecting agreement',
       error: error.message 
     });
   }

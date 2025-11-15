@@ -80,12 +80,120 @@ exports.updateVendor = async (req, res) => {
 
     console.log('🔵 vendorData to update:', vendorData);
 
+    // Check if this is an interview feedback submission
+    const isInterviewFeedback = vendorData.interviewRating && vendorData.onboardingstatus;
+    const isApprovedForAgreement = vendorData.onboardingstatus === 'inprocess';
+
     const vendor = await vendorModel.updateVendor(vendorId, vendorData);
     
     console.log('🔵 vendorModel.updateVendor returned:', !!vendor);
     
     if (!vendor) {
       return res.status(404).json({ message: 'Vendor not found' });
+    }
+
+    // Send WhatsApp notification when interview feedback is approved (status set to inprocess)
+    if (isInterviewFeedback && isApprovedForAgreement) {
+      console.log('📱 Interview feedback approved - sending WhatsApp notification');
+      
+      const name = (vendor.name || '').trim();
+      const mobile = (vendor.phone || vendor.whatsapp || '').replace(/\s+/g, '');
+      
+      if (mobile) {
+        // Normalize mobile to include country code
+        const normalizeMobile = (raw) => {
+          if (!raw) return raw;
+          let digits = raw.replace(/[^0-9]/g, '');
+          if (digits.length === 10) digits = '91' + digits; // assume India
+          if (digits.length === 11 && digits.startsWith('0')) digits = '91' + digits.slice(1);
+          return digits;
+        };
+        
+        const mobileFormatted = normalizeMobile(mobile);
+        
+        // Send WhatsApp notification in background (don't block response)
+        const sendWhatsAppNotification = async () => {
+          try {
+            const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
+            const apiKey = process.env.ICONIC_API_KEY;
+            const templateName = 'interview_feedback_approved';
+
+            if (!apiKey) {
+              console.error('❌ ICONIC_API_KEY not found in .env');
+              return;
+            }
+
+            console.log('🔄 Sending WhatsApp via template:', templateName);
+            console.log('   Mobile:', mobileFormatted);
+            console.log('   Variables:', [name]);
+            
+            const FormData = require('form-data');
+            const formData = new FormData();
+            formData.append('apikey', apiKey);
+            formData.append('mobile', mobileFormatted);
+            formData.append('templatename', templateName);
+            
+            // Template variables: vendor name
+            const templateVars = [name];
+            formData.append('dvariables', JSON.stringify(templateVars));
+
+            const response = await axios.post(whatsappApiUrl, formData, {
+              headers: formData.getHeaders(),
+              timeout: 30000
+            });
+
+            const whatsappResponse = response.data;
+            console.log('✅ WhatsApp API Response:', JSON.stringify(whatsappResponse, null, 2));
+            
+            if (whatsappResponse && (
+              whatsappResponse.status === 'success' || 
+              whatsappResponse.success === true ||
+              whatsappResponse.statuscode === 200 ||
+              whatsappResponse.statuscode === 2000 ||
+              whatsappResponse.statusCode === 200
+            )) {
+              console.log('✅ Interview feedback notification sent successfully!');
+              
+              // Log notification
+              await Notification.create({ 
+                vendorId: vendor._id, 
+                type: 'whatsapp', 
+                payload: { mobile: mobileFormatted, templateName, variables: templateVars }, 
+                status: 'sent', 
+                providerResponse: whatsappResponse
+              });
+            } else {
+              console.warn('⚠️ WhatsApp API returned non-success status:', whatsappResponse);
+              await Notification.create({ 
+                vendorId: vendor._id, 
+                type: 'whatsapp', 
+                payload: { mobile: mobileFormatted, templateName, variables: templateVars }, 
+                status: 'failed', 
+                error: whatsappResponse
+              });
+            }
+          } catch (waErr) {
+            const errDetail = waErr?.response?.data || { message: waErr.message, code: waErr.code };
+            console.error('❌ WhatsApp send error:', JSON.stringify(errDetail, null, 2));
+            
+            // Log failed notification
+            await Notification.create({ 
+              vendorId: vendor._id, 
+              type: 'whatsapp', 
+              payload: { mobile: mobileFormatted, templateName: 'interview_feedback_approved' }, 
+              status: 'failed', 
+              error: errDetail
+            });
+          }
+        };
+
+        // Send notification asynchronously (don't wait for response)
+        sendWhatsAppNotification().catch(err => {
+          console.error('❌ Background WhatsApp notification failed:', err.message);
+        });
+      } else {
+        console.warn('⚠️ No mobile number found - skipping WhatsApp notification');
+      }
     }
     
     res.json(vendor);
@@ -871,7 +979,7 @@ exports.notifyVendor = async (req, res) => {
       meetingLink: meetingLink || 'Not provided'
     });
 
-    // Send WhatsApp message via template-based API (same as notifyVendorSlots)
+    // Send WhatsApp message via template-based API
     let whatsappSent = false;
     let whatsappResponse = null;
     const isDummyMode = false;
@@ -882,15 +990,15 @@ exports.notifyVendor = async (req, res) => {
     } else {
       const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
       const apiKey = process.env.ICONIC_API_KEY;
-      const templateName = 'vendor_interview_reminder';
+      const templateName = 'interview_reminder';
 
       if (!apiKey) {
         console.error('❌ ICONIC_API_KEY not found in .env');
       } else {
         try {
-          console.log('� Sending WhatsApp via template:', templateName);
+          console.log('🔄 Sending WhatsApp via template:', templateName);
           console.log('   Mobile:', mobileFormatted);
-          console.log('   Variables:', [name, formattedDate, formattedTime, duration, meetingLink]);
+          console.log('   Variables:', [name, formattedDate, formattedTime, duration.toString(), meetingLink]);
           
           const FormData = require('form-data');
           const formData = new FormData();
@@ -999,7 +1107,7 @@ exports.sendReminder = async (req, res) => {
       phone: mobileFormatted
     });
 
-    // Send WhatsApp message via template-based API (same as notifyVendorSlots)
+    // Send WhatsApp message via template-based API
     let whatsappSent = false;
     let whatsappResponse = null;
     const isDummyMode = false;
@@ -1010,7 +1118,7 @@ exports.sendReminder = async (req, res) => {
     } else {
       const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
       const apiKey = process.env.ICONIC_API_KEY;
-      const templateName = 'vendor_slot_selection_reminder';
+      const templateName = 'slotreminder';
 
       if (!apiKey) {
         console.error('❌ ICONIC_API_KEY not found in .env');

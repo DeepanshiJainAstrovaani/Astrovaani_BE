@@ -22,7 +22,7 @@ const seedAdmin = async () => {
     await connectDB();
 
     // Check if admin already exists
-    const existingAdmin = await Admin.findOne({ phoneNumber: '9876543210' });
+    const existingAdmin = await Admin.findOne({ phoneNumber: '8168095773' });
 
     if (existingAdmin) {
       console.log('⚠️  Admin already exists');
@@ -37,7 +37,7 @@ const seedAdmin = async () => {
     // Create first admin
     const admin = new Admin({
       name: 'Super Admin',
-      phoneNumber: '9876543210', // Change this to your phone number
+      phoneNumber: '8168095773',
       email: 'admin@astrovaani.com',
       role: 'super-admin',
       isActive: true

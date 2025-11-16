@@ -38,7 +38,7 @@ app.use('/api/blogs', blogRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/booking', bookingRoutes);
 app.use('/api/payment', paymentRoutes);
-app.use('/api/admin', adminAuthRoutes); // Admin authentication routes
+app.use('/api/admin-auth', adminAuthRoutes); // Admin authentication routes
 
 // Start the server - Listen on all network interfaces (0.0.0.0) for mobile device access
 const HOST = '0.0.0.0'; // Listen on all interfaces

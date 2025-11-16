@@ -1,4 +1,4 @@
-const Admin = require('../models/schemas/adminSchema');
+const Admin = require('../models/Admin');
 const jwt = require('jsonwebtoken');
 const { sendWhatsAppMessage } = require('../utils/whatsappHelper');
 
@@ -30,7 +30,7 @@ exports.sendOTP = async (req, res) => {
     }
 
     // Check if admin exists
-    let admin = await Admin.findOne({ mobile: phoneNumber });
+    let admin = await Admin.findOne({ phoneNumber: phoneNumber });
 
     if (!admin) {
       return res.status(404).json({
@@ -106,7 +106,7 @@ exports.verifyOTP = async (req, res) => {
     }
 
     // Find admin
-    const admin = await Admin.findOne({ mobile: phoneNumber }).select('+otp +otpExpiry');
+    const admin = await Admin.findOne({ phoneNumber: phoneNumber }).select('+otp +otpExpiry');
 
     if (!admin) {
       return res.status(404).json({

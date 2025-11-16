@@ -1,6 +1,6 @@
 const Admin = require('../models/Admin');
 const jwt = require('jsonwebtoken');
-const { sendWhatsAppMessage } = require('../utils/whatsappHelper');
+const { sendWhatsAppMessage } = require('../utils/whatsappService');
 
 // Generate JWT token
 const generateToken = (adminId) => {

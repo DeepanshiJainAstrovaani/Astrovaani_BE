@@ -158,6 +158,34 @@ https://astrovaani-web-fe.vercel.app/login
 
 ---
 
+## Troubleshooting
+
+### Model Mismatch Issue (FIXED)
+**Problem:** The admin auth controller was importing from `models/schemas/adminSchema.js` (which uses `mobile` field) instead of `models/Admin.js` (which uses `phoneNumber` field).
+
+**Solution:** Updated `controllers/adminAuthController.js` to:
+1. Import from `models/Admin.js` instead of `models/schemas/adminSchema.js`
+2. Use `phoneNumber` field instead of `mobile` field for all database queries
+
+**Files Modified:**
+- `controllers/adminAuthController.js` - Changed import and database queries
+
+**Deployment:** Pushed to GitHub on [current date] to trigger automatic Render deployment.
+
+---
+
+## Testing Checklist
+
+- [ ] Verify Render deployment is live and healthy
+- [ ] Test `/api/admin-auth/send-otp` endpoint with phone `8168095773`
+- [ ] Verify OTP is generated and returned (in development mode)
+- [ ] Test `/api/admin-auth/verify-otp` endpoint with valid OTP
+- [ ] Verify JWT token is returned on successful verification
+- [ ] Test frontend login flow on Vercel with backend on Render
+- [ ] Confirm WhatsApp message delivery (once approved template is live)
+
+---
+
 **Status:** ✅ READY FOR TESTING  
 **Created:** November 16, 2025  
 **Admin Phone:** 8168095773  

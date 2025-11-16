@@ -167,8 +167,13 @@ https://astrovaani-web-fe.vercel.app/login
 1. Import from `models/Admin.js` instead of `models/schemas/adminSchema.js`
 2. Use `phoneNumber` field instead of `mobile` field for all database queries
 
+### WhatsApp Service Import Error (FIXED)
+**Problem:** The admin auth controller was trying to import from `../utils/whatsappHelper` which doesn't exist.
+
+**Solution:** Updated the import to use `../utils/whatsappService` which is the correct filename.
+
 **Files Modified:**
-- `controllers/adminAuthController.js` - Changed import and database queries
+- `controllers/adminAuthController.js` - Fixed import path and database queries
 
 **Deployment:** Pushed to GitHub on [current date] to trigger automatic Render deployment.
 

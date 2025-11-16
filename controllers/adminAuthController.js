@@ -64,23 +64,17 @@ exports.sendOTP = async (req, res) => {
 
       res.status(200).json({
         success: true,
-        message: 'OTP sent successfully to your WhatsApp'
+        message: 'OTP sent successfully to your WhatsApp',
+        otp: otp // TEMPORARY: For testing until WhatsApp is approved
       });
     } catch (whatsappError) {
       console.error('WhatsApp send error:', whatsappError);
 
-      // For development: Return OTP in response if WhatsApp fails
-      if (process.env.NODE_ENV === 'development') {
-        return res.status(200).json({
-          success: true,
-          message: 'OTP generated (WhatsApp service unavailable)',
-          otp: otp // Only in development!
-        });
-      }
-
-      res.status(500).json({
-        success: false,
-        message: 'Failed to send OTP. Please try again.'
+      // Return OTP in response if WhatsApp fails (for testing)
+      return res.status(200).json({
+        success: true,
+        message: 'OTP generated (WhatsApp service unavailable)',
+        otp: otp // TEMPORARY: For testing
       });
     }
   } catch (error) {

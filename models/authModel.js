@@ -1,17 +1,15 @@
 const User = require('./schemas/userSchema');
-const twilio = require('twilio');
+const { sendWhatsApp } = require('../utils/whatsappService');
 require('dotenv').config();
 
-const twilioClient = new twilio(
-    process.env.TWILIO_ACCOUNT_SID,
-    process.env.TWILIO_AUTH_TOKEN
-);
-
-const HARDCODED_OTP = "123456";
+// Generate random 6-digit OTP
+const generateOTP = () => {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+};
 
 exports.initiateWhatsAppLogin = async (mobile) => {
     try {
-        const otp = HARDCODED_OTP;
+        const otp = generateOTP();
 
         // Check if user exists
         let user = await User.findOne({ mobile }).select('+otp');
@@ -30,10 +28,10 @@ exports.initiateWhatsAppLogin = async (mobile) => {
             });
         }
 
-        // In production, uncomment this to send actual WhatsApp OTP
-        // await sendWhatsAppOTP(mobile, otp);
+        // Send OTP via WhatsApp
+        await sendWhatsAppOTP(mobile, otp);
 
-        return { success: true, message: 'OTP set (would send via WhatsApp in production)' };
+        return { success: true, message: 'OTP sent successfully via WhatsApp' };
     } catch (error) {
         console.error('Error in initiateWhatsAppLogin:', error);
         throw error;
@@ -42,15 +40,19 @@ exports.initiateWhatsAppLogin = async (mobile) => {
 
 async function sendWhatsAppOTP(mobile, otp) {
     try {
-        await twilioClient.messages.create({
-            from: 'whatsapp:+14155238886',
-            contentSid: 'HX229f5a04fd0510ce1b071852155d3e75',
-            contentVariables: JSON.stringify({ "1": otp }),
-            to: `whatsapp:+91${mobile}`
-        });
-        return { success: true };
+        const message = `Your Astrovaani Admin Login OTP is: ${otp}\n\nThis OTP is valid for 10 minutes.\n\nDo not share this OTP with anyone.`;
+        
+        console.log(`📱 Sending OTP to ${mobile}`);
+        const result = await sendWhatsApp(mobile, message);
+        
+        if (!result.success) {
+            throw new Error(result.error || 'Failed to send WhatsApp message');
+        }
+        
+        console.log(`✅ OTP sent successfully via ${result.provider}`);
+        return { success: true, provider: result.provider };
     } catch (error) {
-        console.error('Twilio error:', error);
+        console.error('❌ Error sending WhatsApp OTP:', error);
         throw error;
     }
 }
@@ -64,14 +66,14 @@ exports.verifyWhatsAppOTP = async (mobile, otp) => {
             return { success: false, message: 'User not found' };
         }
 
-        if (user.otp !== HARDCODED_OTP) {
+        if (user.otp !== otp) {
             return { success: false, message: 'Invalid OTP' };
         }
 
-        // Check if OTP has expired (optional)
-        // if (user.otpExpiry && user.otpExpiry < new Date()) {
-        //     return { success: false, message: 'OTP has expired' };
-        // }
+        // Check if OTP has expired
+        if (user.otpExpiry && user.otpExpiry < new Date()) {
+            return { success: false, message: 'OTP has expired' };
+        }
 
         // Clear OTP
         user.otp = null;

@@ -1,6 +1,6 @@
 const Admin = require('../models/Admin');
 const jwt = require('jsonwebtoken');
-const { sendWhatsAppMessage } = require('../utils/whatsappService');
+const { sendWhatsApp } = require('../utils/whatsappService');
 
 // Generate JWT token
 const generateToken = (adminId) => {
@@ -57,24 +57,29 @@ exports.sendOTP = async (req, res) => {
     await admin.save();
 
     // Send OTP via WhatsApp
-    const message = `🔐 Your Astrovaani Admin Login OTP is: *${otp}*\n\nThis OTP will expire in 10 minutes.\n\nDo not share this OTP with anyone.`;
+    const message = `Your Astrovaani Admin Login OTP is: ${otp}\n\nThis OTP is valid for 10 minutes.\n\nDo not share this OTP with anyone.`;
 
     try {
-      await sendWhatsAppMessage(phoneNumber, message);
+      console.log(`📱 Sending OTP to ${phoneNumber}`);
+      const result = await sendWhatsApp(phoneNumber, message);
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to send WhatsApp message');
+      }
+
+      console.log(`✅ OTP sent successfully via ${result.provider}`);
 
       res.status(200).json({
         success: true,
-        message: 'OTP sent successfully to your WhatsApp',
-        otp: otp // TEMPORARY: For testing until WhatsApp is approved
+        message: 'OTP sent successfully to your WhatsApp'
       });
     } catch (whatsappError) {
-      console.error('WhatsApp send error:', whatsappError);
+      console.error('❌ WhatsApp send error:', whatsappError);
 
-      // Return OTP in response if WhatsApp fails (for testing)
-      return res.status(200).json({
-        success: true,
-        message: 'OTP generated (WhatsApp service unavailable)',
-        otp: otp // TEMPORARY: For testing
+      // Return error if WhatsApp fails
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to send OTP. Please try again.'
       });
     }
   } catch (error) {

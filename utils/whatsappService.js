@@ -73,7 +73,7 @@ async function sendViaIconicSolution(mobile, message) {
     throw new Error('IconicSolution API key not configured');
   }
   
-  const sendUrl = 'http://api.iconicsolution.co.in/wapp/v2/api/send';
+  const sendUrl = 'https://wa.iconicsolution.co.in/wapp/api/send';
   const mobileFormatted = normalizeMobileNoPrefix(mobile);
   
   console.log('📱 Sending via IconicSolution WhatsApp');

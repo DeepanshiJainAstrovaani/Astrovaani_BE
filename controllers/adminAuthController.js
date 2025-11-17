@@ -56,11 +56,12 @@ exports.sendOTP = async (req, res) => {
     admin.otpExpiry = otpExpiry;
     await admin.save();
 
-    // Send OTP via WhatsApp
+    // Send OTP via WhatsApp using IconicSolution API
     const message = `Your Astrovaani Admin Login OTP is: ${otp}\n\nThis OTP is valid for 10 minutes.\n\nDo not share this OTP with anyone.`;
 
     try {
       console.log(`📱 Sending OTP to ${phoneNumber}`);
+      console.log(`🔧 Using sendWhatsApp function from whatsappService`);
       const result = await sendWhatsApp(phoneNumber, message);
 
       if (!result.success) {

@@ -66,7 +66,7 @@ async function sendViaTwilio(mobile, message) {
 /**
  * Send WhatsApp via IconicSolution (Template-based)
  */
-async function sendViaIconicSolution(mobile, message, templateName = 'admin_login_otp') {
+async function sendViaIconicSolution(mobile, message, templateName = 'sendotp') {
   const apiKey = process.env.ICONIC_API_KEY;
   
   if (!apiKey) {
@@ -127,12 +127,12 @@ async function sendViaIconicSolution(mobile, message, templateName = 'admin_logi
  * @param {string} message - Message to send
  * @param {Object} options - Optional settings
  * @param {boolean} options.enableFallback - Enable fallback to other providers (default: true)
- * @param {string} options.templateName - Template name for IconicSolution (default: 'admin_login_otp')
+ * @param {string} options.templateName - Template name for IconicSolution (default: 'sendotp')
  */
 async function sendWhatsApp(mobile, message, options = {}) {
   const preferredProvider = process.env.WHATSAPP_PROVIDER || 'twilio'; // 'twilio' or 'iconic'
   const enableFallback = options.enableFallback !== false;
-  const templateName = options.templateName || 'admin_login_otp';
+  const templateName = options.templateName || 'sendotp';
   
   const providers = preferredProvider === 'twilio' 
     ? ['twilio', 'iconicsolution']

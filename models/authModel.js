@@ -40,10 +40,15 @@ exports.initiateWhatsAppLogin = async (mobile) => {
 
 async function sendWhatsAppOTP(mobile, otp) {
     try {
-        const message = `Your Astrovaani Admin Login OTP is: ${otp}\n\nThis OTP is valid for 10 minutes.\n\nDo not share this OTP with anyone.`;
+        // Template 'sendotp' expects the full message in {{1}} placeholder
+        // Matching customer frontend format
+        const message = `Your One-Time Password (OTP) is: ${otp}. Valid for 10 minutes.`;
         
         console.log(`📱 Sending OTP to ${mobile}`);
-        const result = await sendWhatsApp(mobile, message);
+        console.log(`🔑 OTP: ${otp}`);
+        const result = await sendWhatsApp(mobile, message, {
+            templateName: 'sendotp'  // Use same template as customer frontend
+        });
         
         if (!result.success) {
             throw new Error(result.error || 'Failed to send WhatsApp message');

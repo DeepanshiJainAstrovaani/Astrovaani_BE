@@ -64,26 +64,29 @@ async function sendViaTwilio(mobile, message) {
 }
 
 /**
- * Send WhatsApp via IconicSolution
+ * Send WhatsApp via IconicSolution (Template-based)
  */
-async function sendViaIconicSolution(mobile, message) {
+async function sendViaIconicSolution(mobile, message, templateName = 'admin_login_otp') {
   const apiKey = process.env.ICONIC_API_KEY;
   
   if (!apiKey) {
     throw new Error('IconicSolution API key not configured');
   }
   
-  const sendUrl = 'https://wa.iconicsolution.co.in/wapp/api/send';
+  // Use template endpoint (required for IconicSolution)
+  const sendUrl = 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
   const mobileFormatted = normalizeMobileNoPrefix(mobile);
   
   console.log('📱 Sending via IconicSolution WhatsApp');
   console.log('   Mobile:', mobileFormatted);
+  console.log('   Template:', templateName);
   console.log('   Message length:', message.length);
   
   const params = new URLSearchParams();
   params.append('apikey', apiKey);
   params.append('mobile', mobileFormatted);
-  params.append('msg', message);
+  params.append('templatename', templateName);
+  params.append('dvariables', message);
   
   const response = await axios.post(sendUrl, params.toString(), {
     headers: {
@@ -105,7 +108,7 @@ async function sendViaIconicSolution(mobile, message) {
   );
   
   if (!isSuccess) {
-    throw new Error(response.data?.msg || 'IconicSolution API returned non-success status');
+    throw new Error(response.data?.msg || response.data?.errormsg || 'IconicSolution API returned non-success status');
   }
   
   return {
@@ -119,10 +122,17 @@ async function sendViaIconicSolution(mobile, message) {
 /**
  * Send WhatsApp with automatic fallback
  * Tries providers in order: Twilio → IconicSolution
+ * 
+ * @param {string} mobile - Mobile number
+ * @param {string} message - Message to send
+ * @param {Object} options - Optional settings
+ * @param {boolean} options.enableFallback - Enable fallback to other providers (default: true)
+ * @param {string} options.templateName - Template name for IconicSolution (default: 'admin_login_otp')
  */
 async function sendWhatsApp(mobile, message, options = {}) {
   const preferredProvider = process.env.WHATSAPP_PROVIDER || 'twilio'; // 'twilio' or 'iconic'
   const enableFallback = options.enableFallback !== false;
+  const templateName = options.templateName || 'admin_login_otp';
   
   const providers = preferredProvider === 'twilio' 
     ? ['twilio', 'iconicsolution']
@@ -139,7 +149,7 @@ async function sendWhatsApp(mobile, message, options = {}) {
       if (provider === 'twilio') {
         result = await sendViaTwilio(mobile, message);
       } else if (provider === 'iconicsolution') {
-        result = await sendViaIconicSolution(mobile, message);
+        result = await sendViaIconicSolution(mobile, message, templateName);
       }
       
       attempts.push({ provider, success: true, result });

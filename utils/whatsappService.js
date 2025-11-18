@@ -82,18 +82,16 @@ async function sendViaIconicSolution(mobile, message, templateName = 'sendotp') 
   console.log('   Template:', templateName);
   console.log('   Message length:', message.length);
   
-  const params = new URLSearchParams();
-  params.append('apikey', apiKey);
-  params.append('mobile', mobileFormatted);
-  params.append('templatename', templateName);
-  params.append('dvariables', message);
+  // Use FormData like customer frontend and vendorController
+  const FormData = require('form-data');
+  const formData = new FormData();
+  formData.append('apikey', apiKey);
+  formData.append('mobile', mobileFormatted);
+  formData.append('templatename', templateName);
+  formData.append('dvariables', message);
   
-  const response = await axios.post(sendUrl, params.toString(), {
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'User-Agent': 'curl/7.68.0',
-      'Accept': '*/*'
-    },
+  const response = await axios.post(sendUrl, formData, {
+    headers: formData.getHeaders(),
     timeout: 15000
   });
   

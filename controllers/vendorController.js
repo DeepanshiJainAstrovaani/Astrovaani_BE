@@ -1243,8 +1243,8 @@ exports.scheduleInterview = async (req, res) => {
     await vendor.save();
 
     // Send WhatsApp notification with interview link
-    const baseUrl = process.env.SITE_BASE_URL || 'https://astrovaani.com';
-    const interviewLink = `${baseUrl}/vendor-interview?code=${vendor.interviewcode}`;
+    const baseUrl = 'https://astrovaani-web-fe.vercel.app'; // Vercel deployment URL
+    const interviewLink = `${baseUrl}/interview?code=${vendor.interviewcode}`;
     
     // Prepare vendor contact details for WhatsApp
     const name = (vendor.name || '').trim();
@@ -1274,7 +1274,8 @@ exports.scheduleInterview = async (req, res) => {
       try {
         const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
         const apiKey = process.env.ICONIC_API_KEY;
-        const templateName = 'vendor_schedule_interview_button'; // Same template as notifyVendorSlots
+        // Use the new template with button (interview link in button URL)
+        const templateName = 'vendor_schedule_interview_with_button';
         
         if (!apiKey) {
           console.error('❌ ICONIC_API_KEY not found in .env');
@@ -1292,11 +1293,11 @@ exports.scheduleInterview = async (req, res) => {
         formData.append('mobile', mobileFormatted);
         formData.append('templatename', templateName);
         
-        // Template variables: vendor name only (interview link goes in button)
+        // Template variables: vendor name only (1 variable)
         const templateVars = [name];
         formData.append('dvariables', JSON.stringify(templateVars));
         
-        // Add button with interview booking link
+        // Add button with complete interview URL
         const buttonData = [{ type: 'url', url: interviewLink }];
         formData.append('buttons', JSON.stringify(buttonData));
 
@@ -1343,7 +1344,7 @@ exports.scheduleInterview = async (req, res) => {
         await Notification.create({ 
           vendorId: vendor._id, 
           type: 'whatsapp', 
-          payload: { mobile: mobileFormatted, templateName: 'vendor_interview_notification_' }, 
+          payload: { mobile: mobileFormatted, templateName, variables: templateVars }, 
           status: 'failed', 
           error: errDetail
         });

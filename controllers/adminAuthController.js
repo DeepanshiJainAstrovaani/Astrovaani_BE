@@ -57,12 +57,17 @@ exports.sendOTP = async (req, res) => {
     await admin.save();
 
     // Send OTP via WhatsApp using IconicSolution API
-    const message = `Your Astrovaani Admin Login OTP is: ${otp}\n\nThis OTP is valid for 10 minutes.\n\nDo not share this OTP with anyone.`;
+    // Template expects only the OTP number, not the full message
+    const message = otp;  // Just send "847392"
 
     try {
       console.log(`📱 Sending OTP to ${phoneNumber}`);
-      console.log(`🔧 Using sendWhatsApp function from whatsappService`);
-      const result = await sendWhatsApp(phoneNumber, message);
+      console.log(`� OTP: ${otp}`);
+      console.log(`📤 Message format: Just OTP number (${message})`);
+      console.log(`�🔧 Using sendWhatsApp function from whatsappService`);
+      const result = await sendWhatsApp(phoneNumber, message, {
+        templateName: 'sendotp'  // Use sendotp template
+      });
 
       if (!result.success) {
         throw new Error(result.error || 'Failed to send WhatsApp message');

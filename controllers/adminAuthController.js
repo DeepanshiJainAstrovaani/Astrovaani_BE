@@ -57,14 +57,14 @@ exports.sendOTP = async (req, res) => {
     await admin.save();
 
     // Send OTP via WhatsApp using IconicSolution API
-    // Template expects only the OTP number, not the full message
-    const message = otp;  // Just send "847392"
+    // MATCH CUSTOMER FRONTEND EXACT FORMAT (they send full message and it works!)
+    const message = `Your One-Time Password (OTP) is: ${otp}. Valid for 10 minutes.`;
 
     try {
       console.log(`📱 Sending OTP to ${phoneNumber}`);
-      console.log(`� OTP: ${otp}`);
-      console.log(`📤 Message format: Just OTP number (${message})`);
-      console.log(`�🔧 Using sendWhatsApp function from whatsappService`);
+      console.log(`🔑 OTP: ${otp}`);
+      console.log(`📤 Message: ${message}`);
+      console.log(`🔧 Using sendWhatsApp function from whatsappService`);
       const result = await sendWhatsApp(phoneNumber, message, {
         templateName: 'sendotp'  // Use sendotp template
       });

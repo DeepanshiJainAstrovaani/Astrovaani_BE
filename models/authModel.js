@@ -40,12 +40,13 @@ exports.initiateWhatsAppLogin = async (mobile) => {
 
 async function sendWhatsAppOTP(mobile, otp) {
     try {
-        // Template 'sendotp' expects the full message in {{1}} placeholder
-        // Matching customer frontend format
-        const message = `Your One-Time Password (OTP) is: ${otp}. Valid for 10 minutes.`;
+        // TESTING: Try sending just the OTP number
+        // Template might have the message text already and expect only the OTP as variable
+        const message = otp;  // Just "847392"
         
         console.log(`📱 Sending OTP to ${mobile}`);
         console.log(`🔑 OTP: ${otp}`);
+        console.log(`📤 Message format: Just OTP number (${message})`);
         const result = await sendWhatsApp(mobile, message, {
             templateName: 'sendotp'  // Use same template as customer frontend
         });

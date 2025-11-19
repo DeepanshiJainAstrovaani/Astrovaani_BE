@@ -834,14 +834,11 @@ exports.sendMeetingLink = async (req, res) => {
       console.log('📝 Message:\n' + msg);
       whatsappSent = true;
     } else {
-      // REAL MODE: Use template-based API with button for meeting link
+      // REAL MODE: Use simple text template (easier to get approved than button template)
       const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
       const apiKey = process.env.ICONIC_API_KEY;
-      // NEW: Template with "Join Interview" button
-      const templateName = 'vendor_meeting_link_with_button';
-      
-      // Get interviewer name (default to "Admin" if not set)
-      const interviewerName = vendor.interviewerid || 'Admin';
+      // Simple text template with meeting link as variable (no button complexity)
+      const templateName = 'vendor_meeting_link_simple';
       
       // Format timing for template
       const formattedTiming = `${formattedDate} at ${formattedTime}`;
@@ -851,10 +848,9 @@ exports.sendMeetingLink = async (req, res) => {
         whatsappResponse = { error: 'API key not configured' };
       } else {
         try {
-          console.log('🔄 Sending WhatsApp via template (with button):', templateName);
+          console.log('🔄 Sending WhatsApp via template:', templateName);
           console.log('   Mobile:', mobileFormatted);
-          console.log('   Variables:', [name, interviewerName, formattedTiming]);
-          console.log('   Button URL:', meetingLink);
+          console.log('   Variables:', [name, formattedTiming, meetingLink]);
           
           const FormData = require('form-data');
           const formData = new FormData();
@@ -862,14 +858,9 @@ exports.sendMeetingLink = async (req, res) => {
           formData.append('mobile', mobileFormatted);
           formData.append('templatename', templateName);
           
-          // Template variables: vendor name only
-          const templateVars = [name];
+          // Template has 3 variables: {{1}} = vendor name, {{2}} = date/time, {{3}} = meeting link
+          const templateVars = [name, formattedTiming, meetingLink];
           formData.append('dvariables', JSON.stringify(templateVars));
-          
-          // Add button with meeting link
-          // Note: Button URL format may vary based on IconicSolution API
-          const buttonData = [{ type: 'url', url: meetingLink }];
-          formData.append('buttons', JSON.stringify(buttonData));
 
           const response = await axios.post(whatsappApiUrl, formData, {
             headers: formData.getHeaders(),

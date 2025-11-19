@@ -378,7 +378,7 @@ exports.notifyVendorSlots = async (req, res) => {
       // REAL MODE: Use template-based API (same as customer_frontend)
       const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
       const apiKey = process.env.ICONIC_API_KEY;
-      // NEW: Template with "Schedule Interview" button
+      // Template with "Book Slot" button (matches IconicSolution dashboard)
       const templateName = 'vendor_interview_schedule_with_button';
       
       if (!apiKey) {
@@ -389,7 +389,7 @@ exports.notifyVendorSlots = async (req, res) => {
           console.log('🔄 Sending WhatsApp via template (with button):', templateName);
           console.log('   Mobile:', mobileFormatted);
           console.log('   Variables:', [name]);
-          console.log('   Button URL:', link);
+          console.log('   Button suffix:', interviewCode);
           
           const FormData = require('form-data');
           const formData = new FormData();
@@ -397,14 +397,11 @@ exports.notifyVendorSlots = async (req, res) => {
           formData.append('mobile', mobileFormatted);
           formData.append('templatename', templateName);
           
-          // Template variables: vendor name only
-          const templateVars = [name];
-          formData.append('dvariables', JSON.stringify(templateVars));
+          // Template variables: vendor name in JSON array format
+          formData.append('dvariables', JSON.stringify([name]));
           
-          // Add button with interview booking link
-          // Note: Button URL format may vary based on IconicSolution API
-          const buttonData = [{ type: 'url', url: link }];
-          formData.append('buttons', JSON.stringify(buttonData));
+          // Button URL suffix: just the interview code (template has base URL)
+          formData.append('link', interviewCode);
           
           const sendRes = await axios.post(whatsappApiUrl, formData, { 
             headers: formData.getHeaders(),

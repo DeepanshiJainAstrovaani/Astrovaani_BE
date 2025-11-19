@@ -309,7 +309,7 @@ exports.notifyVendorSlots = async (req, res) => {
     await vendor.save();
 
     // prepare message and send via IconicSolution (same as PHP)
-    const baseUrl = process.env.SITE_BASE_URL || 'https://astrovaani.com';
+    const baseUrl = 'https://astrovaani-web-fe.vercel.app'; // Vercel deployment URL
     // Use new React interview page instead of PHP
     const link = `${baseUrl}/interview?code=${encodeURIComponent(interviewCode)}`;
     const name = (vendor.name || '').trim();
@@ -379,7 +379,7 @@ exports.notifyVendorSlots = async (req, res) => {
       const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
       const apiKey = process.env.ICONIC_API_KEY;
       // NEW: Template with "Schedule Interview" button
-      const templateName = 'vendor_schedule_interview_button';
+      const templateName = 'vendor_schedule_interview_with_button';
       
       if (!apiKey) {
         console.error('❌ ICONIC_API_KEY not found in .env');
@@ -1006,15 +1006,21 @@ exports.notifyVendor = async (req, res) => {
     } else {
       const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
       const apiKey = process.env.ICONIC_API_KEY;
-      const templateName = 'interview_reminder';
+      // Use the same template as notify-slots with button
+      const templateName = 'vendor_schedule_interview_with_button';
+      
+      // Get interview link from vendor's interviewCode
+      const interviewCode = vendor.interviewCode || `ASTROVAANI-${vendor._id}`;
+      const interviewLink = `https://astrovaani-web-fe.vercel.app/interview?code=${interviewCode}`;
 
       if (!apiKey) {
         console.error('❌ ICONIC_API_KEY not found in .env');
       } else {
         try {
-          console.log('🔄 Sending WhatsApp via template:', templateName);
+          console.log('🔄 Sending WhatsApp reminder via template (with button):', templateName);
           console.log('   Mobile:', mobileFormatted);
-          console.log('   Variables:', [name, formattedDate, formattedTime, duration.toString(), meetingLink]);
+          console.log('   Variables:', [name]);
+          console.log('   Button URL:', interviewLink);
           
           const FormData = require('form-data');
           const formData = new FormData();
@@ -1022,9 +1028,13 @@ exports.notifyVendor = async (req, res) => {
           formData.append('mobile', mobileFormatted);
           formData.append('templatename', templateName);
           
-          // Template variables: name, date, time, duration, meeting link
-          const templateVars = [name, formattedDate, formattedTime, duration.toString(), meetingLink];
+          // Template variables: vendor name only (interview link goes in button)
+          const templateVars = [name];
           formData.append('dvariables', JSON.stringify(templateVars));
+          
+          // Add button with interview booking link
+          const buttonData = [{ type: 'url', url: interviewLink }];
+          formData.append('buttons', JSON.stringify(buttonData));
 
           const response = await axios.post(whatsappApiUrl, formData, {
             headers: formData.getHeaders(),
@@ -1135,7 +1145,7 @@ exports.sendReminder = async (req, res) => {
       const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
       const apiKey = process.env.ICONIC_API_KEY;
       // Use the same template as notify-slots (with Schedule Interview button)
-      const templateName = 'vendor_schedule_interview_button';
+      const templateName = 'vendor_schedule_interview_with_button';
 
       if (!apiKey) {
         console.error('❌ ICONIC_API_KEY not found in .env');

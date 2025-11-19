@@ -397,8 +397,11 @@ exports.notifyVendorSlots = async (req, res) => {
           formData.append('mobile', mobileFormatted);
           formData.append('templatename', templateName);
           
-          // Template has 2 variables: vendor name (message) + interview code (button)
-          formData.append('dvariables', JSON.stringify([name, interviewCode]));
+          // Template has 1 variable (vendor name) + button parameter
+          formData.append('dvariables', JSON.stringify([name]));
+          
+          // Button URL parameter - send as numbered parameter
+          formData.append('1', interviewCode);
           
           const sendRes = await axios.post(whatsappApiUrl, formData, { 
             headers: formData.getHeaders(),
@@ -1021,9 +1024,12 @@ exports.notifyVendor = async (req, res) => {
           formData.append('mobile', mobileFormatted);
           formData.append('templatename', templateName);
           
-          // Template has 2 variables: vendor name (message) + interview code (button)
-          const templateVars = [name, interviewCode];
+          // Template has 1 variable (vendor name) + button parameter
+          const templateVars = [name];
           formData.append('dvariables', JSON.stringify(templateVars));
+          
+          // Button URL parameter - send as numbered parameter
+          formData.append('1', interviewCode);
 
           const response = await axios.post(whatsappApiUrl, formData, {
             headers: formData.getHeaders(),
@@ -1154,9 +1160,12 @@ exports.sendReminder = async (req, res) => {
           formData.append('mobile', mobileFormatted);
           formData.append('templatename', templateName);
           
-          // Template has 2 variables: vendor name (message) + interview code (button)
-          const templateVars = [name, interviewCode];
+          // Template has 1 variable (vendor name) + button parameter
+          const templateVars = [name];
           formData.append('dvariables', JSON.stringify(templateVars));
+          
+          // Button URL parameter - send as numbered parameter
+          formData.append('1', interviewCode);
 
           const response = await axios.post(whatsappApiUrl, formData, {
             headers: formData.getHeaders(),
@@ -1291,9 +1300,12 @@ exports.scheduleInterview = async (req, res) => {
         formData.append('mobile', mobileFormatted);
         formData.append('templatename', templateName);
         
-        // Template has 2 variables: vendor name (message) + interview code (button)
-        const templateVars = [name, vendor.interviewcode];
+        // Template has 1 variable (vendor name) + button parameter
+        const templateVars = [name];
         formData.append('dvariables', JSON.stringify(templateVars));
+        
+        // Button URL parameter - send as numbered parameter
+        formData.append('1', vendor.interviewcode);
 
         const response = await axios.post(whatsappApiUrl, formData, {
           headers: formData.getHeaders(),

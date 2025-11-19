@@ -375,21 +375,21 @@ exports.notifyVendorSlots = async (req, res) => {
       finalStatus = 'sent';
       console.log(`✅ WhatsApp sent successfully (DUMMY MODE)!`);
     } else {
-      // REAL MODE: Use template-based API (same as customer_frontend)
+      // REAL MODE: Use template-based API (direct link template)
       const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
       const apiKey = process.env.ICONIC_API_KEY;
-      // Template with "Schedule Slot" button (matches IconicSolution dashboard)
-      const templateName = 'schedule_slot_with_button_vendor';
+      // Template with direct link in message (no button issues!)
+      const templateName = 'vendor_interview_notification_';
       
       if (!apiKey) {
         console.error('❌ ICONIC_API_KEY not found in .env');
         whatsappResponse = { error: 'API key not configured' };
       } else {
         try {
-          console.log('🔄 Sending WhatsApp via template (with button):', templateName);
+          console.log('🔄 Sending WhatsApp via template (with direct link):', templateName);
           console.log('   Mobile:', mobileFormatted);
           console.log('   Vendor Name:', name);
-          console.log('   Interview Code:', interviewCode);
+          console.log('   Interview Link:', link);
           
           const FormData = require('form-data');
           const formData = new FormData();
@@ -397,11 +397,8 @@ exports.notifyVendorSlots = async (req, res) => {
           formData.append('mobile', mobileFormatted);
           formData.append('templatename', templateName);
           
-          // Template has 1 variable (vendor name) + button parameter
-          formData.append('dvariables', JSON.stringify([name]));
-          
-          // Button URL parameter - send as numbered parameter
-          formData.append('1', interviewCode);
+          // Template has 2 variables: vendor name + interview link
+          formData.append('dvariables', JSON.stringify([name, link]));
           
           const sendRes = await axios.post(whatsappApiUrl, formData, { 
             headers: formData.getHeaders(),
@@ -1003,20 +1000,21 @@ exports.notifyVendor = async (req, res) => {
     } else {
       const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
       const apiKey = process.env.ICONIC_API_KEY;
-      // Use the correct template name (matches IconicSolution dashboard)
-      const templateName = 'schedule_slot_with_button_vendor';
+      // Use template with direct link (no button complexity)
+      const templateName = 'vendor_interview_notification_';
       
       // Get interview code from vendor
       const interviewCode = vendor.interviewcode || `ASTROVAANI-${vendor._id}`;
+      const interviewLink = `https://astrovaani-web-fe.vercel.app/interview?code=${interviewCode}`;
 
       if (!apiKey) {
         console.error('❌ ICONIC_API_KEY not found in .env');
       } else {
         try {
-          console.log('🔄 Sending WhatsApp reminder via template (with button):', templateName);
+          console.log('🔄 Sending WhatsApp reminder via template (with direct link):', templateName);
           console.log('   Mobile:', mobileFormatted);
           console.log('   Vendor Name:', name);
-          console.log('   Interview Code:', interviewCode);
+          console.log('   Interview Link:', interviewLink);
           
           const FormData = require('form-data');
           const formData = new FormData();
@@ -1024,12 +1022,9 @@ exports.notifyVendor = async (req, res) => {
           formData.append('mobile', mobileFormatted);
           formData.append('templatename', templateName);
           
-          // Template has 1 variable (vendor name) + button parameter
-          const templateVars = [name];
+          // Template has 2 variables: vendor name + interview link
+          const templateVars = [name, interviewLink];
           formData.append('dvariables', JSON.stringify(templateVars));
-          
-          // Button URL parameter - send as numbered parameter
-          formData.append('1', interviewCode);
 
           const response = await axios.post(whatsappApiUrl, formData, {
             headers: formData.getHeaders(),
@@ -1139,20 +1134,21 @@ exports.sendReminder = async (req, res) => {
     } else {
       const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
       const apiKey = process.env.ICONIC_API_KEY;
-      // Use the correct template name (matches IconicSolution dashboard)
-      const templateName = 'schedule_slot_with_button_vendor';
+      // Use template with direct link (no button complexity)
+      const templateName = 'vendor_interview_notification_';
       
       // Get interview code from vendor
       const interviewCode = vendor.interviewcode;
+      const interviewLink = `https://astrovaani-web-fe.vercel.app/interview?code=${interviewCode}`;
 
       if (!apiKey) {
         console.error('❌ ICONIC_API_KEY not found in .env');
       } else {
         try {
-          console.log('🔄 Sending WhatsApp reminder via template (with button):', templateName);
+          console.log('🔄 Sending WhatsApp reminder via template (with direct link):', templateName);
           console.log('   Mobile:', mobileFormatted);
           console.log('   Vendor Name:', name);
-          console.log('   Interview Code:', interviewCode);
+          console.log('   Interview Link:', interviewLink);
           
           const FormData = require('form-data');
           const formData = new FormData();
@@ -1160,12 +1156,9 @@ exports.sendReminder = async (req, res) => {
           formData.append('mobile', mobileFormatted);
           formData.append('templatename', templateName);
           
-          // Template has 1 variable (vendor name) + button parameter
-          const templateVars = [name];
+          // Template has 2 variables: vendor name + interview link
+          const templateVars = [name, interviewLink];
           formData.append('dvariables', JSON.stringify(templateVars));
-          
-          // Button URL parameter - send as numbered parameter
-          formData.append('1', interviewCode);
 
           const response = await axios.post(whatsappApiUrl, formData, {
             headers: formData.getHeaders(),
@@ -1281,18 +1274,21 @@ exports.scheduleInterview = async (req, res) => {
       try {
         const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
         const apiKey = process.env.ICONIC_API_KEY;
-        // Use the correct template name (matches IconicSolution dashboard)
-        const templateName = 'schedule_slot_with_button_vendor';
+        // Use template with direct link (no button complexity)
+        const templateName = 'vendor_interview_notification_';
         
         if (!apiKey) {
           console.error('❌ ICONIC_API_KEY not found in .env');
           return;
         }
 
+        // Build complete interview link
+        const interviewLink = `https://astrovaani-web-fe.vercel.app/interview?code=${vendor.interviewcode}`;
+
         console.log('🔄 Sending WhatsApp via template:', templateName);
         console.log('   Mobile:', mobileFormatted);
         console.log('   Vendor Name:', name);
-        console.log('   Interview Code:', vendor.interviewcode);
+        console.log('   Interview Link:', interviewLink);
         
         const FormData = require('form-data');
         const formData = new FormData();
@@ -1300,12 +1296,9 @@ exports.scheduleInterview = async (req, res) => {
         formData.append('mobile', mobileFormatted);
         formData.append('templatename', templateName);
         
-        // Template has 1 variable (vendor name) + button parameter
-        const templateVars = [name];
+        // Template has 2 variables: vendor name + interview link
+        const templateVars = [name, interviewLink];
         formData.append('dvariables', JSON.stringify(templateVars));
-        
-        // Button URL parameter - send as numbered parameter
-        formData.append('1', vendor.interviewcode);
 
         const response = await axios.post(whatsappApiUrl, formData, {
           headers: formData.getHeaders(),

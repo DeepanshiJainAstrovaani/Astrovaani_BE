@@ -378,8 +378,8 @@ exports.notifyVendorSlots = async (req, res) => {
       // REAL MODE: Use template-based API (same as customer_frontend)
       const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
       const apiKey = process.env.ICONIC_API_KEY;
-      // Template with "Book Slot" button (matches IconicSolution dashboard)
-      const templateName = 'vendor_interview_schedule_with_button';
+      // Template with "Schedule Slot" button (matches IconicSolution dashboard)
+      const templateName = 'schedule_slot_with_button_vendor';
       
       if (!apiKey) {
         console.error('❌ ICONIC_API_KEY not found in .env');
@@ -389,7 +389,7 @@ exports.notifyVendorSlots = async (req, res) => {
           console.log('🔄 Sending WhatsApp via template (with button):', templateName);
           console.log('   Mobile:', mobileFormatted);
           console.log('   Variables:', [name]);
-          console.log('   Button URL:', link);
+          console.log('   Interview Code (for button):', interviewCode);
           
           const FormData = require('form-data');
           const formData = new FormData();
@@ -400,8 +400,8 @@ exports.notifyVendorSlots = async (req, res) => {
           // Template variables: vendor name in JSON array format
           formData.append('dvariables', JSON.stringify([name]));
           
-          // Button URL: full interview link (template expects complete URL after base)
-          formData.append('link', link);
+          // Button parameter: interview code only (template base URL is pre-configured)
+          formData.append('code', interviewCode);
           
           const sendRes = await axios.post(whatsappApiUrl, formData, { 
             headers: formData.getHeaders(),
@@ -1003,12 +1003,11 @@ exports.notifyVendor = async (req, res) => {
     } else {
       const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
       const apiKey = process.env.ICONIC_API_KEY;
-      // Use the same template as notify-slots with button
-      const templateName = 'vendor_interview_schedule_with_button';
+      // Use the correct template name (matches IconicSolution dashboard)
+      const templateName = 'schedule_slot_with_button_vendor';
       
-      // Get interview link from vendor's interviewCode
-      const interviewCode = vendor.interviewCode || `ASTROVAANI-${vendor._id}`;
-      const interviewLink = `https://astrovaani-web-fe.vercel.app/interview?code=${interviewCode}`;
+      // Get interview code from vendor
+      const interviewCode = vendor.interviewcode || `ASTROVAANI-${vendor._id}`;
 
       if (!apiKey) {
         console.error('❌ ICONIC_API_KEY not found in .env');
@@ -1017,7 +1016,7 @@ exports.notifyVendor = async (req, res) => {
           console.log('🔄 Sending WhatsApp reminder via template (with button):', templateName);
           console.log('   Mobile:', mobileFormatted);
           console.log('   Variables:', [name]);
-          console.log('   Button URL:', interviewLink);
+          console.log('   Interview Code:', interviewCode);
           
           const FormData = require('form-data');
           const formData = new FormData();
@@ -1025,13 +1024,12 @@ exports.notifyVendor = async (req, res) => {
           formData.append('mobile', mobileFormatted);
           formData.append('templatename', templateName);
           
-          // Template variables: vendor name only (interview link goes in button)
+          // Template variables: vendor name only
           const templateVars = [name];
           formData.append('dvariables', JSON.stringify(templateVars));
           
-          // Add button with interview booking link
-          const buttonData = [{ type: 'url', url: interviewLink }];
-          formData.append('buttons', JSON.stringify(buttonData));
+          // Button parameter: send interview code only
+          formData.append('code', interviewCode);
 
           const response = await axios.post(whatsappApiUrl, formData, {
             headers: formData.getHeaders(),
@@ -1141,8 +1139,11 @@ exports.sendReminder = async (req, res) => {
     } else {
       const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
       const apiKey = process.env.ICONIC_API_KEY;
-      // Use the same template as notify-slots (with Schedule Interview button)
-      const templateName = 'vendor_interview_schedule_with_button';
+      // Use the correct template name (matches IconicSolution dashboard)
+      const templateName = 'schedule_slot_with_button_vendor';
+      
+      // Get interview code from vendor
+      const interviewCode = vendor.interviewcode;
 
       if (!apiKey) {
         console.error('❌ ICONIC_API_KEY not found in .env');
@@ -1151,7 +1152,7 @@ exports.sendReminder = async (req, res) => {
           console.log('🔄 Sending WhatsApp reminder via template (with button):', templateName);
           console.log('   Mobile:', mobileFormatted);
           console.log('   Variables:', [name]);
-          console.log('   Button URL:', interviewLink);
+          console.log('   Interview Code:', interviewCode);
           
           const FormData = require('form-data');
           const formData = new FormData();
@@ -1159,13 +1160,12 @@ exports.sendReminder = async (req, res) => {
           formData.append('mobile', mobileFormatted);
           formData.append('templatename', templateName);
           
-          // Template variables: vendor name only (interview link goes in button)
+          // Template variables: vendor name only
           const templateVars = [name];
           formData.append('dvariables', JSON.stringify(templateVars));
           
-          // Add button with interview booking link
-          const buttonData = [{ type: 'url', url: interviewLink }];
-          formData.append('buttons', JSON.stringify(buttonData));
+          // Button parameter: send interview code only
+          formData.append('code', interviewCode);
 
           const response = await axios.post(whatsappApiUrl, formData, {
             headers: formData.getHeaders(),
@@ -1281,8 +1281,8 @@ exports.scheduleInterview = async (req, res) => {
       try {
         const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
         const apiKey = process.env.ICONIC_API_KEY;
-        // Use the new template with button (interview link in button URL)
-        const templateName = 'vendor_interview_schedule_with_button';
+        // Use the correct template name (matches IconicSolution dashboard)
+        const templateName = 'schedule_slot_with_button_vendor';
         
         if (!apiKey) {
           console.error('❌ ICONIC_API_KEY not found in .env');
@@ -1292,7 +1292,7 @@ exports.scheduleInterview = async (req, res) => {
         console.log('🔄 Sending WhatsApp via template:', templateName);
         console.log('   Mobile:', mobileFormatted);
         console.log('   Variables:', [name]);
-        console.log('   Button URL:', interviewLink);
+        console.log('   Interview Code:', vendor.interviewcode);
         
         const FormData = require('form-data');
         const formData = new FormData();
@@ -1304,9 +1304,8 @@ exports.scheduleInterview = async (req, res) => {
         const templateVars = [name];
         formData.append('dvariables', JSON.stringify(templateVars));
         
-        // Add button with complete interview URL
-        const buttonData = [{ type: 'url', url: interviewLink }];
-        formData.append('buttons', JSON.stringify(buttonData));
+        // Button parameter: send interview code only (template has base URL pre-configured)
+        formData.append('code', vendor.interviewcode);
 
         const response = await axios.post(whatsappApiUrl, formData, {
           headers: formData.getHeaders(),

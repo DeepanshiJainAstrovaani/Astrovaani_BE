@@ -379,7 +379,7 @@ exports.notifyVendorSlots = async (req, res) => {
       const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
       const apiKey = process.env.ICONIC_API_KEY;
       // NEW: Template with "Schedule Interview" button
-      const templateName = 'vendor_schedule_interview_with_button';
+      const templateName = 'vendor_interview_schedule_with_button';
       
       if (!apiKey) {
         console.error('❌ ICONIC_API_KEY not found in .env');
@@ -1007,7 +1007,7 @@ exports.notifyVendor = async (req, res) => {
       const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
       const apiKey = process.env.ICONIC_API_KEY;
       // Use the same template as notify-slots with button
-      const templateName = 'vendor_schedule_interview_with_button';
+      const templateName = 'vendor_interview_schedule_with_button';
       
       // Get interview link from vendor's interviewCode
       const interviewCode = vendor.interviewCode || `ASTROVAANI-${vendor._id}`;
@@ -1145,7 +1145,7 @@ exports.sendReminder = async (req, res) => {
       const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
       const apiKey = process.env.ICONIC_API_KEY;
       // Use the same template as notify-slots (with Schedule Interview button)
-      const templateName = 'vendor_schedule_interview_with_button';
+      const templateName = 'vendor_interview_schedule_with_button';
 
       if (!apiKey) {
         console.error('❌ ICONIC_API_KEY not found in .env');
@@ -1285,7 +1285,7 @@ exports.scheduleInterview = async (req, res) => {
         const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
         const apiKey = process.env.ICONIC_API_KEY;
         // Use the new template with button (interview link in button URL)
-        const templateName = 'vendor_schedule_interview_with_button';
+        const templateName = 'vendor_interview_schedule_with_button';
         
         if (!apiKey) {
           console.error('❌ ICONIC_API_KEY not found in .env');

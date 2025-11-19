@@ -397,9 +397,8 @@ exports.notifyVendorSlots = async (req, res) => {
           formData.append('mobile', mobileFormatted);
           formData.append('templatename', templateName);
           
-          // Template has 2 variables: {{1}} = vendor name, {{2}} = full notification message with link
-          const messageContent = `Your interview has been scheduled! Click here to book your slot: ${link}`;
-          formData.append('dvariables', JSON.stringify([name, messageContent]));
+          // Template has 2 variables: {{1}} = vendor name, {{2}} = interview link (just the URL)
+          formData.append('dvariables', JSON.stringify([name, link]));
           
           const sendRes = await axios.post(whatsappApiUrl, formData, { 
             headers: formData.getHeaders(),
@@ -992,21 +991,16 @@ exports.notifyVendor = async (req, res) => {
     } else {
       const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
       const apiKey = process.env.ICONIC_API_KEY;
-      // Use template with direct link (no button complexity)
-      const templateName = 'vendor_interview_notification_';
-      
-      // Get interview code from vendor
-      const interviewCode = vendor.interviewcode || `ASTROVAANI-${vendor._id}`;
-      const interviewLink = `https://astrovaani-web-fe.vercel.app/interview?code=${interviewCode}`;
+      // Use simple reminder template (matches the popup message)
+      const templateName = 'vendor_interview_reminder_simple';
 
       if (!apiKey) {
         console.error('❌ ICONIC_API_KEY not found in .env');
       } else {
         try {
-          console.log('🔄 Sending WhatsApp reminder via template (with direct link):', templateName);
+          console.log('🔄 Sending WhatsApp reminder via template:', templateName);
           console.log('   Mobile:', mobileFormatted);
           console.log('   Vendor Name:', name);
-          console.log('   Interview Link:', interviewLink);
           
           const FormData = require('form-data');
           const formData = new FormData();
@@ -1014,9 +1008,9 @@ exports.notifyVendor = async (req, res) => {
           formData.append('mobile', mobileFormatted);
           formData.append('templatename', templateName);
           
-          // Template has 2 variables: {{1}} = vendor name, {{2}} = full notification message with link
-          const messageContent = `Your interview has been scheduled! Click here to book your slot: ${interviewLink}`;
-          formData.append('dvariables', JSON.stringify([name, messageContent]));
+          // Template has 1 variable: {{1}} = vendor name
+          const templateVars = [name];
+          formData.append('dvariables', JSON.stringify(templateVars));
 
           const response = await axios.post(whatsappApiUrl, formData, {
             headers: formData.getHeaders(),
@@ -1034,14 +1028,39 @@ exports.notifyVendor = async (req, res) => {
             whatsappResponse.statusCode === 200
           )) {
             whatsappSent = true;
-            console.log('✅ WhatsApp sent successfully!');
+            console.log('✅ WhatsApp reminder sent successfully!');
+            
+            // Log notification
+            await Notification.create({ 
+              vendorId: vendor._id, 
+              type: 'whatsapp', 
+              payload: { mobile: mobileFormatted, templateName, variables: templateVars }, 
+              status: 'sent', 
+              providerResponse: whatsappResponse
+            });
           } else {
             console.warn('⚠️ WhatsApp API returned non-success status:', whatsappResponse);
+            await Notification.create({ 
+              vendorId: vendor._id, 
+              type: 'whatsapp', 
+              payload: { mobile: mobileFormatted, templateName, variables: templateVars }, 
+              status: 'failed', 
+              error: whatsappResponse
+            });
           }
         } catch (waErr) {
           const errDetail = waErr?.response?.data || { message: waErr.message, code: waErr.code };
           console.error('❌ WhatsApp send error:', JSON.stringify(errDetail, null, 2));
           whatsappResponse = errDetail;
+          
+          // Log failed notification
+          await Notification.create({ 
+            vendorId: vendor._id, 
+            type: 'whatsapp', 
+            payload: { mobile: mobileFormatted, templateName }, 
+            status: 'failed', 
+            error: errDetail
+          });
         }
       }
     }

@@ -389,7 +389,7 @@ exports.notifyVendorSlots = async (req, res) => {
           console.log('🔄 Sending WhatsApp via template (with button):', templateName);
           console.log('   Mobile:', mobileFormatted);
           console.log('   Variables:', [name]);
-          console.log('   Button suffix:', interviewCode);
+          console.log('   Button URL:', link);
           
           const FormData = require('form-data');
           const formData = new FormData();
@@ -400,8 +400,8 @@ exports.notifyVendorSlots = async (req, res) => {
           // Template variables: vendor name in JSON array format
           formData.append('dvariables', JSON.stringify([name]));
           
-          // Button URL suffix: just the interview code (template has base URL)
-          formData.append('link', interviewCode);
+          // Button URL: full interview link (template expects complete URL after base)
+          formData.append('link', link);
           
           const sendRes = await axios.post(whatsappApiUrl, formData, { 
             headers: formData.getHeaders(),

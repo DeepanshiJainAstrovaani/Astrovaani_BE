@@ -311,7 +311,7 @@ exports.notifyVendorSlots = async (req, res) => {
     // prepare message and send via IconicSolution (same as PHP)
     const baseUrl = 'https://astrovaani-web-fe.vercel.app'; // Vercel deployment URL
     // Use new React interview page instead of PHP
-    const link = `${baseUrl}/interview?code=${encodeURIComponent(interviewCode)}`;
+    const link = `${baseUrl}/interview?code=${interviewCode}`;
     const name = (vendor.name || '').trim();
     const mobile = (vendor.phone || vendor.whatsapp || '').replace(/\s+/g, '');
     if (!mobile) return res.status(400).json({ message: 'Vendor mobile not available' });
@@ -1093,8 +1093,8 @@ exports.sendReminder = async (req, res) => {
     }
 
     // Send WhatsApp reminder with interview link
-    const baseUrl = process.env.SITE_BASE_URL || 'https://astrovaani.com';
-    const interviewLink = `${baseUrl}/interview?code=${encodeURIComponent(vendor.interviewcode)}`;
+    const baseUrl = 'https://astrovaani-web-fe.vercel.app';
+    const interviewLink = `${baseUrl}/interview?code=${vendor.interviewcode}`;
     
     const name = (vendor.name || '').trim();
     const mobile = (vendor.phone || vendor.whatsapp || '').replace(/\s+/g, '');

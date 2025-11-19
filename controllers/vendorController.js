@@ -397,8 +397,9 @@ exports.notifyVendorSlots = async (req, res) => {
           formData.append('mobile', mobileFormatted);
           formData.append('templatename', templateName);
           
-          // Template has 2 variables: vendor name + interview link
-          formData.append('dvariables', JSON.stringify([name, link]));
+          // Template has 2 variables: {{1}} = vendor name, {{2}} = full notification message with link
+          const messageContent = `Your interview has been scheduled! Click here to book your slot: ${link}`;
+          formData.append('dvariables', JSON.stringify([name, messageContent]));
           
           const sendRes = await axios.post(whatsappApiUrl, formData, { 
             headers: formData.getHeaders(),
@@ -1022,9 +1023,9 @@ exports.notifyVendor = async (req, res) => {
           formData.append('mobile', mobileFormatted);
           formData.append('templatename', templateName);
           
-          // Template has 2 variables: vendor name + interview link
-          const templateVars = [name, interviewLink];
-          formData.append('dvariables', JSON.stringify(templateVars));
+          // Template has 2 variables: {{1}} = vendor name, {{2}} = full notification message with link
+          const messageContent = `Your interview has been scheduled! Click here to book your slot: ${interviewLink}`;
+          formData.append('dvariables', JSON.stringify([name, messageContent]));
 
           const response = await axios.post(whatsappApiUrl, formData, {
             headers: formData.getHeaders(),
@@ -1156,9 +1157,9 @@ exports.sendReminder = async (req, res) => {
           formData.append('mobile', mobileFormatted);
           formData.append('templatename', templateName);
           
-          // Template has 2 variables: vendor name + interview link
-          const templateVars = [name, interviewLink];
-          formData.append('dvariables', JSON.stringify(templateVars));
+          // Template has 2 variables: {{1}} = vendor name, {{2}} = full notification message with link
+          const messageContent = `Your interview has been scheduled! Click here to book your slot: ${interviewLink}`;
+          formData.append('dvariables', JSON.stringify([name, messageContent]));
 
           const response = await axios.post(whatsappApiUrl, formData, {
             headers: formData.getHeaders(),
@@ -1296,9 +1297,9 @@ exports.scheduleInterview = async (req, res) => {
         formData.append('mobile', mobileFormatted);
         formData.append('templatename', templateName);
         
-        // Template has 2 variables: vendor name + interview link
-        const templateVars = [name, interviewLink];
-        formData.append('dvariables', JSON.stringify(templateVars));
+        // Template has 2 variables: {{1}} = vendor name, {{2}} = full notification message with link
+        const messageContent = `Your interview has been scheduled! Click here to book your slot: ${interviewLink}`;
+        formData.append('dvariables', JSON.stringify([name, messageContent]));
 
         const response = await axios.post(whatsappApiUrl, formData, {
           headers: formData.getHeaders(),

@@ -1,18 +1,18 @@
 const express = require('express');
 const router = express.Router();
 const multiPlatformController = require('../controllers/multiPlatformNotificationController');
-const { authenticateCustomer } = require('../middleware/authMiddleware'); // Customer auth
-const { authenticateAdmin } = require('../middleware/adminAuthMiddleware'); // Admin auth
+const authMiddleware = require('../middleware/authMiddleware'); // Customer auth
+const adminAuth = require('../middleware/adminAuth'); // Admin auth
 
 // Customer routes (for mobile app) - Supports Expo, FCM, and APNs
-router.post('/register-token', authenticateCustomer, multiPlatformController.registerToken);
-router.post('/deactivate-token', authenticateCustomer, multiPlatformController.deactivateToken);
+router.post('/register-token', authMiddleware, multiPlatformController.registerToken);
+router.post('/deactivate-token', authMiddleware, multiPlatformController.deactivateToken);
 
 // Admin routes (for admin dashboard)
-router.post('/send', authenticateAdmin, multiPlatformController.sendNotification);
-router.get('/', authenticateAdmin, multiPlatformController.getNotifications);
-router.get('/stats', authenticateAdmin, multiPlatformController.getNotificationStats);
-router.get('/:id', authenticateAdmin, multiPlatformController.getNotificationById);
-router.delete('/:id', authenticateAdmin, multiPlatformController.deleteNotification);
+router.post('/send', adminAuth, multiPlatformController.sendNotification);
+router.get('/', adminAuth, multiPlatformController.getNotifications);
+router.get('/stats', adminAuth, multiPlatformController.getNotificationStats);
+router.get('/:id', adminAuth, multiPlatformController.getNotificationById);
+router.delete('/:id', adminAuth, multiPlatformController.deleteNotification);
 
 module.exports = router;

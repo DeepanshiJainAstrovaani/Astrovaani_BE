@@ -63,6 +63,25 @@ exports.updateVendor = async (req, res) => {
     console.log('🔵 req.files present:', !!req.files);
     if (req.files) console.log('🔵 req.files keys:', Object.keys(req.files));
     
+    // Convert pricing fields from strings to numbers
+    const pricingFields = ['priceperminute', '15minrate', '25minrate', '30minrate', '45minrate', '1hourrate', '90minrate'];
+    pricingFields.forEach(field => {
+      if (vendorData[field] !== undefined && vendorData[field] !== '') {
+        const numValue = parseFloat(vendorData[field]);
+        vendorData[field] = isNaN(numValue) ? 0 : numValue;
+      }
+    });
+    
+    console.log('💰 Pricing fields after conversion:', {
+      priceperminute: vendorData.priceperminute,
+      '15minrate': vendorData['15minrate'],
+      '25minrate': vendorData['25minrate'],
+      '30minrate': vendorData['30minrate'],
+      '45minrate': vendorData['45minrate'],
+      '1hourrate': vendorData['1hourrate'],
+      '90minrate': vendorData['90minrate']
+    });
+    
     // Handle photo uploads
     if (req.files) {
       // Handle main profile photo

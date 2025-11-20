@@ -136,7 +136,14 @@ const vendorSchema = new mongoose.Schema({
   agreementRejectionReason: { type: String, trim: true }, // Reason for rejection
   agreementRejectedAt: { type: Date }, // When agreement was rejected
   agreementUploadedAt: { type: Date }, // When vendor uploaded signed agreement
-  agreementApprovedAt: { type: Date } // When admin approved the agreement
+  agreementApprovedAt: { type: Date }, // When admin approved the agreement
+
+  pricingtype: {
+    type: String,
+    enum: ['FREE', 'PAID'],
+    default: 'PAID',
+    trim: true
+  }
 }, {
   timestamps: true,
   collection: 'community', // Use 'community' as collection name to match your MySQL table

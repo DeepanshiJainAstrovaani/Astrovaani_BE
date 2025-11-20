@@ -63,14 +63,20 @@ exports.updateVendor = async (req, res) => {
     console.log('🔵 req.files present:', !!req.files);
     if (req.files) console.log('🔵 req.files keys:', Object.keys(req.files));
     
-    // Convert pricing fields from strings to numbers
+    // Convert pricing fields from strings to numbers, but if pricingtype is FREE, set all to 0
     const pricingFields = ['priceperminute', '15minrate', '25minrate', '30minrate', '45minrate', '1hourrate', '90minrate'];
-    pricingFields.forEach(field => {
-      if (vendorData[field] !== undefined && vendorData[field] !== '') {
-        const numValue = parseFloat(vendorData[field]);
-        vendorData[field] = isNaN(numValue) ? 0 : numValue;
-      }
-    });
+    if (vendorData.pricingtype === 'FREE') {
+      pricingFields.forEach(field => {
+        vendorData[field] = 0;
+      });
+    } else {
+      pricingFields.forEach(field => {
+        if (vendorData[field] !== undefined && vendorData[field] !== '') {
+          const numValue = parseFloat(vendorData[field]);
+          vendorData[field] = isNaN(numValue) ? 0 : numValue;
+        }
+      });
+    }
     
     console.log('💰 Pricing fields after conversion:', {
       priceperminute: vendorData.priceperminute,
@@ -1422,17 +1428,6 @@ exports.cancelInterview = async (req, res) => {
     
     if (mobile) {
       // Normalize mobile to include country code
-      const normalizeMobile = (raw) => {
-        if (!raw) return raw;
-        let digits = raw.replace(/[^0-9]/g, '');
-        if (digits.length === 10) digits = '91' + digits;
-        if (digits.length === 11 && digits.startsWith('0')) digits = '91' + digits.slice(1);
-        return digits;
-      };
-      
-      const mobileFormatted = normalizeMobile(mobile);
-      
-      // Send WhatsApp notification asynchronously
       const sendRejectionNotification = async () => {
         try {
           const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';

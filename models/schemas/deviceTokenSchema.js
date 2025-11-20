@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const deviceTokenSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Customer',
+    ref: 'User',  // Changed from 'Customer' to 'User'
     required: true,
     index: true
   },

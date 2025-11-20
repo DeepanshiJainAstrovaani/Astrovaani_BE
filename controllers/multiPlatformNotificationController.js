@@ -4,7 +4,7 @@ const { apnProvider } = require('../config/apnsConfig');
 const apn = require('node-apn');
 const DeviceToken = require('../models/schemas/deviceTokenSchema');
 const PushNotification = require('../models/schemas/notificationSchema'); // Renamed to avoid conflict
-const Customer = require('../models/schemas/customerSchema');
+const User = require('../models/schemas/userSchema'); // Changed from customerSchema to userSchema
 
 // Create Expo SDK client
 const expo = new Expo();
@@ -170,7 +170,7 @@ async function sendMultiPlatformNotification(notification) {
     let targetUserIds = [];
     
     if (notification.targetType === 'all') {
-      const allUsers = await Customer.find({ isActive: true }).select('_id');
+      const allUsers = await User.find({ isActive: true }).select('_id');
       targetUserIds = allUsers.map(u => u._id);
     } else if (notification.targetType === 'specific') {
       targetUserIds = notification.targetUsers;
@@ -381,25 +381,25 @@ async function getUsersBySegment(segment) {
 
   switch (segment) {
     case 'new_users':
-      const newUsers = await Customer.find({
+      const newUsers = await User.find({
         createdAt: { $gte: thirtyDaysAgo }
       }).select('_id');
       return newUsers.map(u => u._id);
       
     case 'active_users':
-      const activeUsers = await Customer.find({
+      const activeUsers = await User.find({
         lastLoginAt: { $gte: thirtyDaysAgo }
       }).select('_id');
       return activeUsers.map(u => u._id);
       
     case 'inactive_users':
-      const inactiveUsers = await Customer.find({
+      const inactiveUsers = await User.find({
         lastLoginAt: { $lt: thirtyDaysAgo }
       }).select('_id');
       return inactiveUsers.map(u => u._id);
       
     default:
-      const allUsers = await Customer.find({ isActive: true }).select('_id');
+      const allUsers = await User.find({ isActive: true }).select('_id');
       return allUsers.map(u => u._id);
   }
 }

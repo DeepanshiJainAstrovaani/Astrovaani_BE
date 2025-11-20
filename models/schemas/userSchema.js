@@ -34,6 +34,7 @@ const userSchema = new mongoose.Schema({
 // Index for faster lookups
 userSchema.index({ mobile: 1 });
 
-const User = mongoose.model('User', userSchema);
+// Use mongoose.models to check if model already exists (prevents OverwriteModelError)
+const User = mongoose.models.User || mongoose.model('User', userSchema);
 
 module.exports = User;

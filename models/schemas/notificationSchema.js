@@ -18,7 +18,7 @@ const notificationSchema = new mongoose.Schema({
   },
   targetUsers: [{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Customer'
+    ref: 'User'  // Changed from 'Customer' to 'User'
   }],
   targetSegment: {
     type: String,

@@ -11,4 +11,5 @@ const notificationSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-module.exports = mongoose.model('Notification', notificationSchema);
+// Renamed to MessageNotification to avoid conflict with PushNotification model
+module.exports = mongoose.model('MessageNotification', notificationSchema);

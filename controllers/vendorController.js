@@ -1,6 +1,6 @@
 const vendorModel = require('../models/vendorModel');
 const axios = require('axios');
-const Notification = require('../models/notificationModel');
+const MessageNotification = require('../models/notificationModel'); // Renamed model to avoid conflict
 const nodemailer = require('nodemailer');
  
 // Get all vendors
@@ -174,7 +174,7 @@ exports.updateVendor = async (req, res) => {
               console.log('✅ Interview feedback notification sent successfully!');
               
               // Log notification
-              await Notification.create({ 
+              await MessageNotification.create({ 
                 vendorId: vendor._id, 
                 type: 'whatsapp', 
                 payload: { mobile: mobileFormatted, templateName, variables: templateVars }, 
@@ -183,7 +183,7 @@ exports.updateVendor = async (req, res) => {
               });
             } else {
               console.warn('⚠️ WhatsApp API returned non-success status:', whatsappResponse);
-              await Notification.create({ 
+              await MessageNotification.create({ 
                 vendorId: vendor._id, 
                 type: 'whatsapp', 
                 payload: { mobile: mobileFormatted, templateName, variables: templateVars }, 
@@ -196,7 +196,7 @@ exports.updateVendor = async (req, res) => {
             console.error('❌ WhatsApp send error:', JSON.stringify(errDetail, null, 2));
             
             // Log failed notification
-            await Notification.create({ 
+            await MessageNotification.create({ 
               vendorId: vendor._id, 
               type: 'whatsapp', 
               payload: { mobile: mobileFormatted, templateName: templateName }, 
@@ -455,7 +455,7 @@ exports.notifyVendorSlots = async (req, res) => {
 
     // Log notification
     if (finalStatus === 'sent') {
-      await Notification.create({ 
+      await MessageNotification.create({ 
         vendorId: vendor._id, 
         type: 'whatsapp', 
         payload: { msg, mobile: mobileFormatted, slots: providedSlots, meetLink: providedMeetLink }, 
@@ -463,7 +463,7 @@ exports.notifyVendorSlots = async (req, res) => {
         providerResponse: whatsappResponse
       });
     } else {
-      await Notification.create({ 
+      await MessageNotification.create({ 
         vendorId: vendor._id, 
         type: 'whatsapp', 
         payload: { msg, mobile: mobileFormatted, slots: providedSlots, meetLink: providedMeetLink }, 
@@ -494,10 +494,10 @@ exports.notifyVendorSlots = async (req, res) => {
           html: `<p>Dear ${name},</p><p>Your interview booking link: <a href="${link}">${link}</a></p>`
         };
         emailResponse = await transporter.sendMail(mailOptions);
-        await Notification.create({ vendorId: vendor._id, type: 'email', payload: { mailOptions }, status: 'sent', providerResponse: emailResponse });
+        await MessageNotification.create({ vendorId: vendor._id, type: 'email', payload: { mailOptions }, status: 'sent', providerResponse: emailResponse });
       } catch (emErr) {
         console.error('Email send error', emErr.message || emErr);
-        await Notification.create({ vendorId: vendor._id, type: 'email', payload: { mailOptions: null }, status: 'failed', error: emErr.message });
+        await MessageNotification.create({ vendorId: vendor._id, type: 'email', payload: { mailOptions: null }, status: 'failed', error: emErr.message });
       }
     } else {
       if (!enableEmail) console.log('Email disabled via ENABLE_EMAIL flag; skipping email send');

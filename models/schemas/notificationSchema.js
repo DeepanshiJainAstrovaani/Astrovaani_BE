@@ -87,4 +87,5 @@ notificationSchema.index({ status: 1, scheduledFor: 1 });
 notificationSchema.index({ createdBy: 1, createdAt: -1 });
 notificationSchema.index({ targetType: 1 });
 
-module.exports = mongoose.model('Notification', notificationSchema);
+// Export as PushNotification to avoid conflict with existing Notification model
+module.exports = mongoose.model('PushNotification', notificationSchema);

@@ -1,6 +1,6 @@
 const { Expo } = require('expo-server-sdk');
 const DeviceToken = require('../models/schemas/deviceTokenSchema');
-const Notification = require('../models/schemas/notificationSchema');
+const PushNotification = require('../models/schemas/notificationSchema'); // Renamed from Notification to PushNotification
 const Customer = require('../models/schemas/customerSchema');
 
 // Create a new Expo SDK client
@@ -115,7 +115,7 @@ exports.sendNotification = async (req, res) => {
     }
 
     // Create notification record
-    const notification = await Notification.create({
+    const notification = await PushNotification.create({
       title,
       body,
       targetType: targetType || 'all',
@@ -292,13 +292,13 @@ exports.getNotifications = async (req, res) => {
     const query = {};
     if (status) query.status = status;
 
-    const notifications = await Notification.find(query)
+    const notifications = await PushNotification.find(query)
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit)
       .populate('createdBy', 'name email');
 
-    const total = await Notification.countDocuments(query);
+    const total = await PushNotification.countDocuments(query);
 
     res.json({
       success: true,
@@ -324,7 +324,7 @@ exports.getNotificationById = async (req, res) => {
   try {
     const { id } = req.params;
     
-    const notification = await Notification.findById(id)
+    const notification = await PushNotification.findById(id)
       .populate('createdBy', 'name email')
       .populate('targetUsers', 'name email phone');
 
@@ -351,7 +351,7 @@ exports.deleteNotification = async (req, res) => {
   try {
     const { id } = req.params;
     
-    const notification = await Notification.findByIdAndDelete(id);
+    const notification = await PushNotification.findByIdAndDelete(id);
 
     if (!notification) {
       return res.status(404).json({ 
@@ -377,17 +377,17 @@ exports.deleteNotification = async (req, res) => {
 // Get notification stats (for dashboard)
 exports.getNotificationStats = async (req, res) => {
   try {
-    const totalSent = await Notification.countDocuments({ status: 'sent' });
-    const totalScheduled = await Notification.countDocuments({ status: 'scheduled' });
-    const totalFailed = await Notification.countDocuments({ status: 'failed' });
+    const totalSent = await PushNotification.countDocuments({ status: 'sent' });
+    const totalScheduled = await PushNotification.countDocuments({ status: 'scheduled' });
+    const totalFailed = await PushNotification.countDocuments({ status: 'failed' });
     
-    const recentNotifications = await Notification.find({ status: 'sent' })
+    const recentNotifications = await PushNotification.find({ status: 'sent' })
       .sort({ sentAt: -1 })
       .limit(5)
       .select('title stats sentAt');
 
     // Calculate total delivered
-    const allSent = await Notification.find({ status: 'sent' });
+    const allSent = await PushNotification.find({ status: 'sent' });
     const totalDelivered = allSent.reduce((sum, n) => sum + (n.stats.successCount || 0), 0);
 
     res.json({

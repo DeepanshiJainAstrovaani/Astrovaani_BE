@@ -63,20 +63,14 @@ exports.updateVendor = async (req, res) => {
     console.log('🔵 req.files present:', !!req.files);
     if (req.files) console.log('🔵 req.files keys:', Object.keys(req.files));
     
-    // Convert pricing fields from strings to numbers, but if pricingtype is FREE, set all to 0
+    // Convert pricing fields from strings to numbers only (removed logic that sets pricing fields to 0 if pricingtype is FREE)
     const pricingFields = ['priceperminute', '15minrate', '25minrate', '30minrate', '45minrate', '1hourrate', '90minrate'];
-    if (vendorData.pricingtype === 'FREE') {
-      pricingFields.forEach(field => {
-        vendorData[field] = 0;
-      });
-    } else {
-      pricingFields.forEach(field => {
-        if (vendorData[field] !== undefined && vendorData[field] !== '') {
-          const numValue = parseFloat(vendorData[field]);
-          vendorData[field] = isNaN(numValue) ? 0 : numValue;
-        }
-      });
-    }
+    pricingFields.forEach(field => {
+      if (vendorData[field] !== undefined && vendorData[field] !== '') {
+        const numValue = parseFloat(vendorData[field]);
+        vendorData[field] = isNaN(numValue) ? 0 : numValue;
+      }
+    });
     
     console.log('💰 Pricing fields after conversion:', {
       priceperminute: vendorData.priceperminute,

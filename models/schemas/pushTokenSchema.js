@@ -39,4 +39,5 @@ const pushTokenSchema = new mongoose.Schema({
 pushTokenSchema.index({ userId: 1, isActive: 1 });
 pushTokenSchema.index({ token: 1 });
 
-module.exports = mongoose.model('PushToken', pushTokenSchema);
+// Use mongoose.models to check if model already exists (prevents OverwriteModelError)
+module.exports = mongoose.models.PushToken || mongoose.model('PushToken', pushTokenSchema);

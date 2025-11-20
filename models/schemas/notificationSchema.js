@@ -88,4 +88,5 @@ notificationSchema.index({ createdBy: 1, createdAt: -1 });
 notificationSchema.index({ targetType: 1 });
 
 // Export as PushNotification to avoid conflict with existing Notification model
-module.exports = mongoose.model('PushNotification', notificationSchema);
+// Use mongoose.models to check if model already exists (prevents OverwriteModelError)
+module.exports = mongoose.models.PushNotification || mongoose.model('PushNotification', notificationSchema);

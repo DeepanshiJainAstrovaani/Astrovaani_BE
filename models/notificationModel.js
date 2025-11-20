@@ -12,4 +12,5 @@ const notificationSchema = new mongoose.Schema({
 });
 
 // Renamed to MessageNotification to avoid conflict with PushNotification model
-module.exports = mongoose.model('MessageNotification', notificationSchema);
+// Use mongoose.models to check if model already exists (prevents OverwriteModelError)
+module.exports = mongoose.models.MessageNotification || mongoose.model('MessageNotification', notificationSchema);

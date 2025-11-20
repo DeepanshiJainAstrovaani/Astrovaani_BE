@@ -45,4 +45,5 @@ const deviceTokenSchema = new mongoose.Schema({
 deviceTokenSchema.index({ userId: 1, isActive: 1 });
 deviceTokenSchema.index({ token: 1 });
 
-module.exports = mongoose.model('DeviceToken', deviceTokenSchema);
+// Use mongoose.models to check if model already exists (prevents OverwriteModelError)
+module.exports = mongoose.models.DeviceToken || mongoose.model('DeviceToken', deviceTokenSchema);

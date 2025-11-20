@@ -66,6 +66,30 @@ const vendorSchema = new mongoose.Schema({
     type: Number,
     min: 0
   },
+  '15minrate': {
+    type: Number,
+    min: 0
+  },
+  '25minrate': {
+    type: Number,
+    min: 0
+  },
+  '30minrate': {
+    type: Number,
+    min: 0
+  },
+  '45minrate': {
+    type: Number,
+    min: 0
+  },
+  '1hourrate': {
+    type: Number,
+    min: 0
+  },
+  '90minrate': {
+    type: Number,
+    min: 0
+  },
   // Scheduling slots
   schedules: [
     {

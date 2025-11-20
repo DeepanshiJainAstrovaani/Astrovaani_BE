@@ -101,6 +101,10 @@ exports.deactivateToken = async (req, res) => {
 // Send push notification (called by admin)
 exports.sendNotification = async (req, res) => {
   try {
+    console.log('📬 ========== NEW NOTIFICATION REQUEST ==========');
+    console.log('📝 Request body:', JSON.stringify(req.body, null, 2));
+    console.log('👤 Admin ID:', req.admin?.id || req.user?.id);
+    
     const { 
       title, 
       body, 
@@ -117,11 +121,15 @@ exports.sendNotification = async (req, res) => {
 
     // Validation
     if (!title || !body) {
+      console.log('❌ Validation failed: Missing title or body');
       return res.status(400).json({ 
         success: false, 
         message: 'Title and body are required' 
       });
     }
+
+    console.log('✅ Validation passed');
+    console.log('📋 Creating notification record...');
 
     // Create notification record
     const notification = await PushNotification.create({
@@ -140,18 +148,30 @@ exports.sendNotification = async (req, res) => {
       clickAction
     });
 
+    console.log('✅ Notification record created:', notification._id);
+    console.log('🎯 Target type:', notification.targetType);
+
     // If not scheduled, send immediately
     if (!scheduledFor) {
+      console.log('🚀 Sending notification immediately...');
       await sendMultiPlatformNotification(notification);
+    } else {
+      console.log('⏰ Notification scheduled for:', scheduledFor);
     }
 
+    console.log('✅ ========== NOTIFICATION REQUEST COMPLETE ==========\n');
+    
     res.json({ 
       success: true, 
       message: scheduledFor ? 'Notification scheduled successfully' : 'Notification sent successfully',
       data: notification
     });
   } catch (error) {
+    console.error('❌ ========== NOTIFICATION ERROR ==========');
     console.error('Error sending notification:', error);
+    console.error('Stack:', error.stack);
+    console.error('==========================================\n');
+    
     res.status(500).json({ 
       success: false, 
       message: 'Failed to send notification',
@@ -163,32 +183,52 @@ exports.sendNotification = async (req, res) => {
 // Main function to send notifications across all platforms
 async function sendMultiPlatformNotification(notification) {
   try {
+    console.log('\n📤 ========== SENDING NOTIFICATION ==========');
+    console.log('📋 Notification ID:', notification._id);
+    console.log('📌 Title:', notification.title);
+    console.log('📝 Body:', notification.body);
+    
     notification.status = 'sending';
     await notification.save();
+    console.log('✅ Status updated to: sending');
 
     // Get target users
     let targetUserIds = [];
     
+    console.log('🎯 Target type:', notification.targetType);
+    
     if (notification.targetType === 'all') {
+      console.log('👥 Fetching all active users...');
       const allUsers = await User.find({ isActive: true }).select('_id');
       targetUserIds = allUsers.map(u => u._id);
+      console.log(`✅ Found ${targetUserIds.length} active users`);
     } else if (notification.targetType === 'specific') {
       targetUserIds = notification.targetUsers;
+      console.log(`👥 Targeting ${targetUserIds.length} specific users`);
     } else if (notification.targetType === 'segment') {
+      console.log('📊 Fetching users by segment:', notification.targetSegment);
       targetUserIds = await getUsersBySegment(notification.targetSegment);
+      console.log(`✅ Found ${targetUserIds.length} users in segment`);
     }
 
     // Get all active device tokens for target users
+    console.log('📱 Fetching device tokens for target users...');
     const deviceTokens = await DeviceToken.find({
       userId: { $in: targetUserIds },
       isActive: true
     });
+    
+    console.log(`✅ Found ${deviceTokens.length} active device tokens`);
 
     if (deviceTokens.length === 0) {
+      console.log('⚠️  No active device tokens found!');
+      console.log('📊 Updating notification stats...');
       notification.status = 'sent';
       notification.stats.totalTargeted = 0;
       notification.sentAt = new Date();
       await notification.save();
+      console.log('✅ Notification marked as sent (0 devices)');
+      console.log('==========================================\n');
       return;
     }
 
@@ -197,31 +237,49 @@ async function sendMultiPlatformNotification(notification) {
     const fcmTokens = deviceTokens.filter(t => t.tokenType === 'fcm');
     const apnsTokens = deviceTokens.filter(t => t.tokenType === 'apns');
 
+    console.log('📊 Token distribution:');
+    console.log(`   - Expo: ${expoTokens.length}`);
+    console.log(`   - FCM: ${fcmTokens.length}`);
+    console.log(`   - APNs: ${apnsTokens.length}`);
+
     let totalSuccess = 0;
     let totalFailed = 0;
 
     // Send via Expo
     if (expoTokens.length > 0) {
+      console.log(`\n📱 Sending via Expo to ${expoTokens.length} devices...`);
       const { success, failed } = await sendViaExpo(expoTokens, notification);
       totalSuccess += success;
       totalFailed += failed;
+      console.log(`✅ Expo results: ${success} success, ${failed} failed`);
+    } else {
+      console.log('⏭️  Skipping Expo (no tokens)');
     }
 
     // Send via FCM
     if (fcmTokens.length > 0) {
+      console.log(`\n🔥 Sending via FCM to ${fcmTokens.length} devices...`);
       const { success, failed } = await sendViaFCM(fcmTokens, notification);
       totalSuccess += success;
       totalFailed += failed;
+      console.log(`✅ FCM results: ${success} success, ${failed} failed`);
+    } else {
+      console.log('⏭️  Skipping FCM (no tokens)');
     }
 
     // Send via APNs
     if (apnsTokens.length > 0) {
+      console.log(`\n🍎 Sending via APNs to ${apnsTokens.length} devices...`);
       const { success, failed } = await sendViaAPNs(apnsTokens, notification);
       totalSuccess += success;
       totalFailed += failed;
+      console.log(`✅ APNs results: ${success} success, ${failed} failed`);
+    } else {
+      console.log('⏭️  Skipping APNs (no tokens)');
     }
 
     // Update notification stats
+    console.log('\n📊 Updating notification stats...');
     notification.status = 'sent';
     notification.sentAt = new Date();
     notification.stats = {
@@ -231,11 +289,19 @@ async function sendMultiPlatformNotification(notification) {
     };
     await notification.save();
 
-    console.log(`✅ Notification sent: ${totalSuccess} success, ${totalFailed} failures`);
+    console.log('✅ ========== NOTIFICATION COMPLETE ==========');
+    console.log(`📊 Final Stats:`);
+    console.log(`   Total Targeted: ${deviceTokens.length}`);
+    console.log(`   Success: ${totalSuccess}`);
+    console.log(`   Failed: ${totalFailed}`);
     console.log(`   Expo: ${expoTokens.length}, FCM: ${fcmTokens.length}, APNs: ${apnsTokens.length}`);
+    console.log('==========================================\n');
     
   } catch (error) {
+    console.error('❌ ========== ERROR IN SEND FUNCTION ==========');
     console.error('Error in sendMultiPlatformNotification:', error);
+    console.error('Stack:', error.stack);
+    console.error('==========================================\n');
     notification.status = 'failed';
     await notification.save();
   }
@@ -244,6 +310,7 @@ async function sendMultiPlatformNotification(notification) {
 // Send via Expo Push Notifications
 async function sendViaExpo(deviceTokens, notification) {
   try {
+    console.log('  📱 Preparing Expo messages...');
     const messages = deviceTokens.map(device => ({
       to: device.token,
       sound: notification.sound,
@@ -255,33 +322,41 @@ async function sendViaExpo(deviceTokens, notification) {
       ...(notification.imageUrl && { image: notification.imageUrl })
     }));
 
+    console.log(`  📦 Chunking ${messages.length} messages...`);
     const chunks = expo.chunkPushNotifications(messages);
+    console.log(`  ✅ Created ${chunks.length} chunks`);
+    
     const tickets = [];
 
-    for (const chunk of chunks) {
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i];
       try {
+        console.log(`  🚀 Sending chunk ${i + 1}/${chunks.length} (${chunk.length} messages)...`);
         const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
         tickets.push(...ticketChunk);
+        console.log(`  ✅ Chunk ${i + 1} sent successfully`);
       } catch (error) {
-        console.error('Error sending Expo chunk:', error);
+        console.error(`  ❌ Error sending Expo chunk ${i + 1}:`, error.message);
       }
     }
 
     let success = 0;
     let failed = 0;
 
-    tickets.forEach(ticket => {
+    tickets.forEach((ticket, index) => {
       if (ticket.status === 'ok') {
         success++;
       } else {
         failed++;
+        console.log(`  ❌ Ticket ${index + 1} failed:`, ticket.message || ticket.details);
       }
     });
 
-    console.log(`📱 Expo: ${success} sent, ${failed} failed`);
+    console.log(`  � Expo summary: ${success} success, ${failed} failed out of ${tickets.length} total`);
     return { success, failed };
   } catch (error) {
-    console.error('Error sending via Expo:', error);
+    console.error('  ❌ Error in sendViaExpo:', error.message);
+    console.error('  Stack:', error.stack);
     return { success: 0, failed: deviceTokens.length };
   }
 }

@@ -27,6 +27,7 @@ app.use(express.json()); // Parse JSON data in requests
 
 // Serve uploaded images
 app.use('/community', express.static(path.join(__dirname, 'community')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); // Serve notification images
 
 // Connect to MongoDB
 connectDB();

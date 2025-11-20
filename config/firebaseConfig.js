@@ -7,6 +7,7 @@ const path = require('path');
 // Firebase Console > Project Settings > Service Accounts > Generate New Private Key
 
 let firebaseApp = null;
+let bucket = null;
 
 const initializeFirebase = () => {
   try {
@@ -40,10 +41,19 @@ const initializeFirebase = () => {
     }
     
     if (!firebaseApp) {
+      // Initialize with Storage bucket
+      const storageBucket = process.env.FIREBASE_STORAGE_BUCKET || `${serviceAccount.project_id}.appspot.com`;
+      
       firebaseApp = admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
+        storageBucket: storageBucket
       });
+      
+      // Get Storage bucket reference
+      bucket = admin.storage().bucket();
+      
       console.log('✅ Firebase Admin SDK initialized successfully');
+      console.log('✅ Firebase Storage bucket:', storageBucket);
     }
     
     return firebaseApp;
@@ -60,5 +70,6 @@ initializeFirebase();
 module.exports = {
   admin: firebaseApp ? admin : null,
   firebaseApp,
+  bucket,
   initializeFirebase
 };

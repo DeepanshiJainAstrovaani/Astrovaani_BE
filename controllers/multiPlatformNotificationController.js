@@ -1,5 +1,5 @@
 const { Expo } = require('expo-server-sdk');
-const { admin } = require('../config/firebaseConfig');
+const { admin, bucket } = require('../config/firebaseConfig');
 const { apnProvider } = require('../config/apnsConfig');
 const apn = require('node-apn');
 const DeviceToken = require('../models/schemas/deviceTokenSchema');
@@ -617,6 +617,127 @@ exports.getNotificationStats = async (req, res) => {
     res.status(500).json({ 
       success: false, 
       message: 'Failed to get notification stats',
+      error: error.message 
+    });
+  }
+};
+
+// Upload image for notification
+exports.uploadNotificationImage = async (req, res) => {
+  try {
+    console.log('📸 ========== IMAGE UPLOAD REQUEST ==========');
+    
+    if (!req.file) {
+      console.log('❌ No file uploaded');
+      return res.status(400).json({ 
+        success: false, 
+        message: 'No image file provided' 
+      });
+    }
+
+    console.log('📝 File info:', {
+      name: req.file.originalname,
+      size: req.file.size,
+      mimetype: req.file.mimetype
+    });
+
+    // Check if Firebase Storage is available
+    if (!bucket) {
+      console.log('⚠️  Firebase Storage not configured, saving locally');
+      
+      // Fallback: Save to local uploads folder
+      const fs = require('fs');
+      const path = require('path');
+      const uploadsDir = path.join(__dirname, '..', 'uploads', 'notifications');
+      
+      // Create directory if it doesn't exist
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+      
+      const filename = `notification-${Date.now()}-${req.file.originalname}`;
+      const filepath = path.join(uploadsDir, filename);
+      
+      fs.writeFileSync(filepath, req.file.buffer);
+      
+      // Return local URL (adjust based on your server setup)
+      const imageUrl = `${process.env.BASE_URL || 'http://localhost:5000'}/uploads/notifications/${filename}`;
+      
+      console.log('✅ Image saved locally:', imageUrl);
+      console.log('==========================================\n');
+      
+      return res.json({
+        success: true,
+        message: 'Image uploaded successfully (local storage)',
+        imageUrl: imageUrl
+      });
+    }
+
+    // Upload to Firebase Storage
+    const filename = `notifications/${Date.now()}-${req.file.originalname}`;
+    const file = bucket.file(filename);
+
+    console.log('☁️  Uploading to Firebase Storage:', filename);
+
+    // Create a write stream
+    const stream = file.createWriteStream({
+      metadata: {
+        contentType: req.file.mimetype,
+        metadata: {
+          firebaseStorageDownloadTokens: require('crypto').randomBytes(16).toString('hex')
+        }
+      }
+    });
+
+    // Handle upload errors
+    stream.on('error', (error) => {
+      console.error('❌ Firebase upload error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to upload image to Firebase Storage',
+        error: error.message
+      });
+    });
+
+    // Handle successful upload
+    stream.on('finish', async () => {
+      try {
+        // Make the file public
+        await file.makePublic();
+
+        // Get public URL
+        const imageUrl = `https://storage.googleapis.com/${bucket.name}/${filename}`;
+
+        console.log('✅ Image uploaded to Firebase:', imageUrl);
+        console.log('==========================================\n');
+
+        res.json({
+          success: true,
+          message: 'Image uploaded successfully',
+          imageUrl: imageUrl
+        });
+      } catch (error) {
+        console.error('❌ Error making file public:', error);
+        res.status(500).json({
+          success: false,
+          message: 'Image uploaded but failed to make public',
+          error: error.message
+        });
+      }
+    });
+
+    // Write the buffer to the stream
+    stream.end(req.file.buffer);
+
+  } catch (error) {
+    console.error('❌ ========== IMAGE UPLOAD ERROR ==========');
+    console.error('Error uploading image:', error);
+    console.error('Stack:', error.stack);
+    console.error('==========================================\n');
+    
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to upload image',
       error: error.message 
     });
   }

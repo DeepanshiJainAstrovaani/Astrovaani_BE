@@ -26,6 +26,48 @@ const userSchema = new mongoose.Schema({
   otpExpiry: {
     type: Date,
     select: false
+  },
+  // Push notification device tokens
+  deviceTokens: [{
+    token: {
+      type: String,
+      required: true
+    },
+    platform: {
+      type: String,
+      enum: ['ios', 'android', 'web', 'expo'],
+      required: true
+    },
+    active: {
+      type: Boolean,
+      default: true
+    },
+    registeredAt: {
+      type: Date,
+      default: Date.now
+    },
+    lastUsed: {
+      type: Date,
+      default: Date.now
+    }
+  }],
+  // Notification preferences
+  notificationPreferences: {
+    enabled: {
+      type: Boolean,
+      default: true
+    },
+    categories: {
+      daily: { type: Boolean, default: true },
+      weekly: { type: Boolean, default: true },
+      monthly: { type: Boolean, default: true },
+      special: { type: Boolean, default: true },
+      promotional: { type: Boolean, default: true }
+    },
+    zodiacOnly: {
+      type: Boolean,
+      default: false // If true, only send notifications matching user's zodiac
+    }
   }
 }, {
   timestamps: true // Automatically adds createdAt and updatedAt

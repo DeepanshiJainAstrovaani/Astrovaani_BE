@@ -30,3 +30,4 @@ cache/
 .vscode/
 .idea/
 *.swp
+config/firebase-service-account.json

@@ -12,6 +12,7 @@ const bookingRoutes = require('./routes/bookingRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const adminAuthRoutes = require('./routes/adminAuth');
 const notificationRoutes = require('./routes/notificationRoutes');
+const userRoutes = require('./routes/userRoutes');
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -42,6 +43,7 @@ app.use('/api/booking', bookingRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/admin-auth', adminAuthRoutes); // Admin authentication routes
 app.use('/api/notifications', notificationRoutes); // Push notification routes (Expo, FCM, APNs)
+app.use('/api/users', userRoutes); // User device registration and preferences
 
 // Start the server - Listen on all network interfaces (0.0.0.0) for mobile device access
 const HOST = '0.0.0.0'; // Listen on all interfaces

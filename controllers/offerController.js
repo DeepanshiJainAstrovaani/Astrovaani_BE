@@ -5,7 +5,7 @@
  */
 
 const Offer = require('../models/schemas/offerSchema');
-
+this
 /**
  * Get all offers
  * @route GET /api/offers
@@ -161,23 +161,10 @@ exports.createOffer = async (req, res) => {
  */
 exports.updateOffer = async (req, res) => {
   try {
-    const {
-      user,
-      mobile,
-      chatCall,
-      validFor,
-      expiryDate,
-      amount,
-      timing,
-      promoText1,
-      promoText2,
-      isActive
-    } = req.body;
-
     // Validate mobile number if provided
-    if (mobile) {
+    if (req.body.mobile) {
       const phoneRegex = /^[6-9]\d{9}$/;
-      if (!phoneRegex.test(mobile)) {
+      if (!phoneRegex.test(req.body.mobile)) {
         return res.status(400).json({
           success: false,
           message: 'Please enter a valid 10-digit mobile number'
@@ -185,35 +172,31 @@ exports.updateOffer = async (req, res) => {
       }
     }
 
-    const offer = await Offer.findById(req.params.id);
+    // Use $set to update all provided fields
+    const updateFields = { ...req.body };
+    // Remove _id if present in payload
+    delete updateFields._id;
 
-    if (!offer) {
+    // Update and return the new document
+    const updatedOffer = await Offer.findByIdAndUpdate(
+      req.params.id,
+      { $set: updateFields },
+      { new: true }
+    );
+
+    if (!updatedOffer) {
       return res.status(404).json({
         success: false,
         message: 'Offer not found'
       });
     }
 
-    // Update fields
-    if (user) offer.user = user;
-    if (mobile) offer.mobile = mobile;
-    if (chatCall) offer.chatCall = chatCall;
-    if (validFor) offer.validFor = validFor;
-    if (expiryDate) offer.expiryDate = expiryDate;
-    if (amount) offer.amount = amount;
-    if (timing) offer.timing = timing;
-    if (promoText1 !== undefined) offer.promoText1 = promoText1;
-    if (promoText2 !== undefined) offer.promoText2 = promoText2;
-    if (isActive !== undefined) offer.isActive = isActive;
-
-    await offer.save();
-
-    console.log(`✅ Offer updated: ${offer.offerCode}`);
+    console.log(`✅ Offer updated: ${updatedOffer.offerCode}`);
 
     res.json({
       success: true,
       message: 'Offer updated successfully',
-      data: offer
+      data: updatedOffer
     });
   } catch (error) {
     console.error('❌ Error updating offer:', error);

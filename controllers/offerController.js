@@ -94,28 +94,29 @@ exports.getOfferByCode = async (req, res) => {
 exports.createOffer = async (req, res) => {
   try {
     const {
-      user,
+      vendor,
       mobile,
-      chatCall,
-      validFor,
-      expiryDate,
+      offerCode,
+      offerText,
+      chat,
+      call,
       amount,
       timing,
-      promoText1,
-      promoText2
+      expiryDate,
+      validFor,
+      applicability
     } = req.body;
 
     // Validate required fields
-    if (!user || !mobile || !chatCall || !validFor || !expiryDate || !amount || !timing) {
+    if (!vendor || !offerCode || !offerText || !chat || !call || !amount || !timing || !expiryDate || !validFor) {
       return res.status(400).json({
         success: false,
         message: 'All required fields must be provided'
       });
     }
 
-    // Validate mobile number
-    const phoneRegex = /^[6-9]\d{9}$/;
-    if (!phoneRegex.test(mobile)) {
+    // Validate mobile if provided
+    if (mobile && !/^[6-9]\d{9}$/.test(mobile)) {
       return res.status(400).json({
         success: false,
         message: 'Please enter a valid 10-digit mobile number'
@@ -124,18 +125,20 @@ exports.createOffer = async (req, res) => {
 
     // Create offer
     const offer = await Offer.create({
-      user,
+      vendor,
       mobile,
-      chatCall,
-      validFor,
-      expiryDate,
+      offerCode,
+      offerText,
+      chat,
+      call,
       amount,
       timing,
-      promoText1: promoText1 || '',
-      promoText2: promoText2 || ''
+      expiryDate,
+      validFor,
+      applicability: Array.isArray(applicability) ? applicability : [],
     });
 
-    console.log(`✅ Offer created: ${offer.offerCode} for ${user}`);
+    console.log(`✅ Offer created: ${offer.offerCode} for ${vendor}`);
 
     res.status(201).json({
       success: true,

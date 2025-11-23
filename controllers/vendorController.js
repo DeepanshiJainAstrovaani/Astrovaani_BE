@@ -82,9 +82,9 @@ exports.updateVendor = async (req, res) => {
       '90minrate': vendorData['90minrate']
     });
     
-    // Handle photo uploads
     if (req.files) {
       // Handle main profile photo
+        // Check if this is an interview feedback submission (new logic)
       if (req.files.photo) {
         vendorData.photo = req.files.photo[0].filename;
       }
@@ -114,104 +114,52 @@ exports.updateVendor = async (req, res) => {
     // Send WhatsApp notification when interview feedback is approved (status set to inprocess)
     if (isInterviewFeedback && isApprovedForAgreement) {
       console.log('📱 Interview feedback approved - sending WhatsApp notification');
-      
       const name = (vendor.name || '').trim();
-      const mobile = (vendor.phone || vendor.whatsapp || '').replace(/\s+/g, '');
-      
-      if (mobile) {
-        // Normalize mobile to include country code
-        const normalizeMobile = (raw) => {
-          if (!raw) return raw;
-          let digits = raw.replace(/[^0-9]/g, '');
-          if (digits.length === 10) digits = '91' + digits; // assume India
-          if (digits.length === 11 && digits.startsWith('0')) digits = '91' + digits.slice(1);
-          return digits;
-        };
-        
-        const mobileFormatted = normalizeMobile(mobile);
-        
+      const whatsappNumber = (vendor.whatsapp || '').replace(/\s+/g, '');
+
+      if (whatsappNumber) {
+        // Use centralized WhatsApp service
+        const { sendWhatsApp } = require('../utils/whatsappService');
+        const templateName = 'vendor_interview_completed';
+        const templateVars = [name];
+        const message = JSON.stringify(templateVars); // If your template expects JSON variables
+
         // Send WhatsApp notification in background (don't block response)
-        const sendWhatsAppNotification = async () => {
+        (async () => {
           try {
-            const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
-            const apiKey = process.env.ICONIC_API_KEY;
-            const templateName = 'vendor_interview_completed';
-
-            if (!apiKey) {
-              console.error('❌ ICONIC_API_KEY not found in .env');
-              return;
-            }
-
-            console.log('🔄 Sending WhatsApp via template:', templateName);
-            console.log('   Mobile:', mobileFormatted);
-            console.log('   Variables:', [name]);
-            
-            const FormData = require('form-data');
-            const formData = new FormData();
-            formData.append('apikey', apiKey);
-            formData.append('mobile', mobileFormatted);
-            formData.append('templatename', templateName);
-            
-            // Template variables: vendor name
-            const templateVars = [name];
-            formData.append('dvariables', JSON.stringify(templateVars));
-
-            const response = await axios.post(whatsappApiUrl, formData, {
-              headers: formData.getHeaders(),
-              timeout: 30000
-            });
-
-            const whatsappResponse = response.data;
-            console.log('✅ WhatsApp API Response:', JSON.stringify(whatsappResponse, null, 2));
-            
-            if (whatsappResponse && (
-              whatsappResponse.status === 'success' || 
-              whatsappResponse.success === true ||
-              whatsappResponse.statuscode === 200 ||
-              whatsappResponse.statuscode === 2000 ||
-              whatsappResponse.statusCode === 200
-            )) {
+            const result = await sendWhatsApp(whatsappNumber, message, { templateName });
+            if (result.success) {
+              await MessageNotification.create({
+                vendorId: vendor._id,
+                type: 'whatsapp',
+                payload: { mobile: whatsappNumber, templateName, variables: templateVars },
+                status: 'sent',
+                providerResponse: result.response
+              });
               console.log('✅ Interview feedback notification sent successfully!');
-              
-              // Log notification
-              await MessageNotification.create({ 
-                vendorId: vendor._id, 
-                type: 'whatsapp', 
-                payload: { mobile: mobileFormatted, templateName, variables: templateVars }, 
-                status: 'sent', 
-                providerResponse: whatsappResponse
-              });
             } else {
-              console.warn('⚠️ WhatsApp API returned non-success status:', whatsappResponse);
-              await MessageNotification.create({ 
-                vendorId: vendor._id, 
-                type: 'whatsapp', 
-                payload: { mobile: mobileFormatted, templateName, variables: templateVars }, 
-                status: 'failed', 
-                error: whatsappResponse
+              await MessageNotification.create({
+                vendorId: vendor._id,
+                type: 'whatsapp',
+                payload: { mobile: whatsappNumber, templateName, variables: templateVars },
+                status: 'failed',
+                error: result.error
               });
+              console.warn('⚠️ WhatsApp API returned non-success status:', result.error);
             }
           } catch (waErr) {
-            const errDetail = waErr?.response?.data || { message: waErr.message, code: waErr.code };
-            console.error('❌ WhatsApp send error:', JSON.stringify(errDetail, null, 2));
-            
-            // Log failed notification
-            await MessageNotification.create({ 
-              vendorId: vendor._id, 
-              type: 'whatsapp', 
-              payload: { mobile: mobileFormatted, templateName: templateName }, 
-              status: 'failed', 
-              error: errDetail
+            console.error('❌ WhatsApp send error:', waErr.message);
+            await MessageNotification.create({
+              vendorId: vendor._id,
+              type: 'whatsapp',
+              payload: { mobile: whatsappNumber, templateName },
+              status: 'failed',
+              error: waErr.message
             });
           }
-        };
-
-        // Send notification asynchronously (don't wait for response)
-        sendWhatsAppNotification().catch(err => {
-          console.error('❌ Background WhatsApp notification failed:', err.message);
-        });
+        })();
       } else {
-        console.warn('⚠️ No mobile number found - skipping WhatsApp notification');
+        console.warn('⚠️ No WhatsApp number found - skipping WhatsApp notification');
       }
     }
     
@@ -1300,90 +1248,49 @@ exports.scheduleInterview = async (req, res) => {
     });
 
     // Send WhatsApp notification asynchronously (don't block response)
-    const sendWhatsAppNotification = async () => {
-      try {
-        const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
-        const apiKey = process.env.ICONIC_API_KEY;
-        // Use template with direct link (no button complexity)
-        const templateName = 'vendor_interview_notification_';
-        
-        if (!apiKey) {
-          console.error('❌ ICONIC_API_KEY not found in .env');
-          return;
-        }
-
-        // Build complete interview link
-        const interviewLink = `https://astrovaani-web-fe.vercel.app/interview?code=${vendor.interviewcode}`;
-
-        console.log('🔄 Sending WhatsApp via template:', templateName);
-        console.log('   Mobile:', mobileFormatted);
-        console.log('   Vendor Name:', name);
-        console.log('   Interview Link:', interviewLink);
-        
-        const FormData = require('form-data');
-        const formData = new FormData();
-        formData.append('apikey', apiKey);
-        formData.append('mobile', mobileFormatted);
-        formData.append('templatename', templateName);
-        
-        // Template has 2 variables: {{1}} = vendor name, {{2}} = full notification message with link
-        const messageContent = `Your interview has been scheduled! Click here to book your slot: ${interviewLink}`;
-        formData.append('dvariables', JSON.stringify([name, messageContent]));
-
-        const response = await axios.post(whatsappApiUrl, formData, {
-          headers: formData.getHeaders(),
-          timeout: 30000
-        });
-
-        const whatsappResponse = response.data;
-        console.log('✅ WhatsApp API Response:', JSON.stringify(whatsappResponse, null, 2));
-        
-        if (whatsappResponse && (
-          whatsappResponse.status === 'success' || 
-          whatsappResponse.success === true ||
-          whatsappResponse.statuscode === 200 ||
-          whatsappResponse.statuscode === 2000 ||
-          whatsappResponse.statusCode === 200
-        )) {
-          console.log('✅ Interview scheduling notification sent successfully!');
-          
-          // Log notification
-          await Notification.create({ 
-            vendorId: vendor._id, 
-            type: 'whatsapp', 
-            payload: { mobile: mobileFormatted, templateName, variables: templateVars }, 
-            status: 'sent', 
-            providerResponse: whatsappResponse
-          });
-        } else {
-          console.warn('⚠️ WhatsApp API returned non-success status:', whatsappResponse);
-          await Notification.create({ 
-            vendorId: vendor._id, 
-            type: 'whatsapp', 
-            payload: { mobile: mobileFormatted, templateName, variables: templateVars }, 
-            status: 'failed', 
-            error: whatsappResponse
+    const whatsappNumber = (vendor.whatsapp || '').replace(/\s+/g, '');
+    if (whatsappNumber) {
+      const { sendWhatsApp } = require('../utils/whatsappService');
+      const templateName = 'vendor_interview_notification_';
+      const interviewLink = `https://astrovaani-web-fe.vercel.app/interview?code=${vendor.interviewcode}`;
+      const templateVars = [vendor.name, `Your interview has been scheduled! Click here to book your slot: ${interviewLink}`];
+      const message = JSON.stringify(templateVars);
+      (async () => {
+        try {
+          const result = await sendWhatsApp(whatsappNumber, message, { templateName });
+          if (result.success) {
+            await Notification.create({
+              vendorId: vendor._id,
+              type: 'whatsapp',
+              payload: { mobile: whatsappNumber, templateName, variables: templateVars },
+              status: 'sent',
+              providerResponse: result.response
+            });
+            console.log('✅ Interview scheduling notification sent successfully!');
+          } else {
+            await Notification.create({
+              vendorId: vendor._id,
+              type: 'whatsapp',
+              payload: { mobile: whatsappNumber, templateName, variables: templateVars },
+              status: 'failed',
+              error: result.error
+            });
+            console.warn('⚠️ WhatsApp API returned non-success status:', result.error);
+          }
+        } catch (waErr) {
+          console.error('❌ WhatsApp send error:', waErr.message);
+          await Notification.create({
+            vendorId: vendor._id,
+            type: 'whatsapp',
+            payload: { mobile: whatsappNumber, templateName },
+            status: 'failed',
+            error: waErr.message
           });
         }
-      } catch (waErr) {
-        const errDetail = waErr?.response?.data || { message: waErr.message, code: waErr.code };
-        console.error('❌ WhatsApp send error:', JSON.stringify(errDetail, null, 2));
-        
-        // Log failed notification
-        await Notification.create({ 
-          vendorId: vendor._id, 
-          type: 'whatsapp', 
-          payload: { mobile: mobileFormatted, templateName, variables: templateVars }, 
-          status: 'failed', 
-          error: errDetail
-        });
-      }
-    };
-
-    // Send notification asynchronously (don't wait for response)
-    sendWhatsAppNotification().catch(err => {
-      console.error('❌ Background WhatsApp notification failed:', err.message);
-    });
+      })();
+    } else {
+      console.warn('⚠️ No WhatsApp number found - skipping WhatsApp notification');
+    }
     
     res.json({
       success: true,

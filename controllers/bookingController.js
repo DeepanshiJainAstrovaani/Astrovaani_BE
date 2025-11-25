@@ -1,3 +1,21 @@
+// Get all bookings (admin)
+exports.getAllBookings = async (req, res) => {
+  try {
+    const { status } = req.query;
+    const filters = {};
+    if (status) {
+      filters.status = status;
+    }
+    const bookings = await bookingModel.getAllBookings(filters);
+    res.status(200).json({
+      count: bookings.length,
+      bookings
+    });
+  } catch (error) {
+    console.error('Error fetching all bookings:', error);
+    res.status(500).json({ error: 'Failed to fetch bookings', message: error.message });
+  }
+};
 const bookingModel = require('../models/bookingModel');
 const mongoose = require('mongoose');
 

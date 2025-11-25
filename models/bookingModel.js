@@ -1,3 +1,19 @@
+// Get all bookings (admin)
+exports.getAllBookings = async (filters = {}) => {
+  try {
+    const query = {};
+    if (filters.status) {
+      query.status = filters.status;
+    }
+    const bookings = await Booking.find(query)
+      .populate('user_id', 'name mobile email')
+      .populate('vendor_id', 'name category subcategory phone image_url rating experience_years')
+      .sort({ createdAt: -1 });
+    return bookings;
+  } catch (error) {
+    throw error;
+  }
+};
 const Booking = require('./schemas/bookingSchema');
 
 exports.createBooking = async (data) => {

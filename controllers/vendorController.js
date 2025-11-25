@@ -18,6 +18,33 @@ exports.getAllVendors = async (req, res) => {
 exports.createVendor = async (req, res) => {
   try {
     const vendorData = req.body;
+    // Required fields and regex patterns
+    const requiredFields = [
+      'name', 'whatsapp', 'gender', 'age', 'email', 'qualifications', 'skills', 'languages', 'experience', 'state', 'city', 'pincode', 'category', 'reason'
+    ];
+    const regexPatterns = {
+      name: /^[A-Za-z ]{2,}$/,
+      whatsapp: /^\d{10}$/,
+      email: /^\S+@\S+\.\S+$/,
+      pincode: /^\d{6}$/
+    };
+    // Validate required fields
+    for (const field of requiredFields) {
+      if (!vendorData[field] || (regexPatterns[field] && !regexPatterns[field].test(vendorData[field]))) {
+        return res.status(400).json({ message: `Invalid or missing field: ${field}` });
+      }
+    }
+    // Set status to inreview if not provided
+    vendorData.status = vendorData.status || 'inreview';
+    // Handle photo upload (if using multer)
+    if (req.file && req.file.filename) {
+      vendorData.photo = req.file.filename;
+    } else if (req.files && req.files.photo && req.files.photo[0] && req.files.photo[0].filename) {
+      vendorData.photo = req.files.photo[0].filename;
+    }
+    if (!vendorData.photo) {
+      return res.status(400).json({ message: 'Photo is required' });
+    }
     const vendor = await vendorModel.createVendor(vendorData);
     res.status(201).json(vendor);
   } catch (error) {

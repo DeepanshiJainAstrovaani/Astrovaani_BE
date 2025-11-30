@@ -40,21 +40,16 @@ exports.initiateWhatsAppLogin = async (mobile) => {
 
 async function sendWhatsAppOTP(mobile, otp) {
     try {
-        // TESTING: Try sending just the OTP number
-        // Template might have the message text already and expect only the OTP as variable
-        const message = otp;  // Just "847392"
-        
-        console.log(`📱 Sending OTP to ${mobile}`);
+        // Use the new template for JoinUs OTP
+        const message = otp; // Only OTP variable is sent
+        console.log(`📱 Sending JoinUs OTP to ${mobile}`);
         console.log(`🔑 OTP: ${otp}`);
-        console.log(`📤 Message format: Just OTP number (${message})`);
         const result = await sendWhatsApp(mobile, message, {
-            templateName: 'sendotp'  // Use same template as customer frontend
+            templateName: 'verify_otp_joinus' // Use new template for JoinUs
         });
-        
         if (!result.success) {
             throw new Error(result.error || 'Failed to send WhatsApp message');
         }
-        
         console.log(`✅ OTP sent successfully via ${result.provider}`);
         return { success: true, provider: result.provider };
     } catch (error) {

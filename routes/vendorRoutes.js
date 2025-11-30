@@ -1,3 +1,9 @@
+const express = require('express');
+const vendorController = require('../controllers/vendorController');
+const upload = require('../middleware/uploadMiddleware');
+
+const router = express.Router();
+
 // POST /api/vendors/check-duplicate
 router.post('/check-duplicate', async (req, res) => {
   const vendorModel = require('../models/vendorModel');
@@ -12,11 +18,6 @@ router.post('/check-duplicate', async (req, res) => {
     res.status(500).json({ message: 'Database error', error: err.message });
   }
 });
-const express = require('express');
-const vendorController = require('../controllers/vendorController');
-const upload = require('../middleware/uploadMiddleware');
-
-const router = express.Router();
 
 // Configure fields for multiple images
 const photoUpload = upload.fields([

@@ -1,7 +1,17 @@
 // Find vendor by whatsapp or email
 exports.findByWhatsappOrEmail = async (whatsapp, email) => {
   try {
-    return await Vendor.findOne({ $or: [ { whatsapp }, { email } ] });
+    if (whatsapp && !email) {
+      return await Vendor.findOne({ whatsapp });
+    }
+    if (email && !whatsapp) {
+      return await Vendor.findOne({ email });
+    }
+    if (whatsapp && email) {
+      // Used only for legacy code, not for separate checks
+      return await Vendor.findOne({ $or: [ { whatsapp }, { email } ] });
+    }
+    return null;
   } catch (error) {
     throw error;
   }

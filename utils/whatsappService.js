@@ -128,61 +128,25 @@ async function sendViaIconicSolution(mobile, message, templateName = 'sendotp') 
  * @param {string} options.templateName - Template name for IconicSolution (default: 'sendotp')
  */
 async function sendWhatsApp(mobile, message, options = {}) {
-  const preferredProvider = process.env.WHATSAPP_PROVIDER || 'twilio'; // 'twilio' or 'iconic'
-  const enableFallback = options.enableFallback !== false;
-  const templateName = options.templateName || 'sendotp';
-  
-  const providers = preferredProvider === 'twilio' 
-    ? ['twilio', 'iconicsolution']
-    : ['iconicsolution', 'twilio'];
-  
-  const attempts = [];
-  let lastError = null;
-  
-  for (const provider of providers) {
-    try {
-      console.log(`\n🔄 Attempting WhatsApp via ${provider}...`);
-      
-      let result;
-      if (provider === 'twilio') {
-        result = await sendViaTwilio(mobile, message);
-      } else if (provider === 'iconicsolution') {
-        result = await sendViaIconicSolution(mobile, message, templateName);
-      }
-      
-      attempts.push({ provider, success: true, result });
-      
-      console.log(`✅ WhatsApp sent successfully via ${provider}!`);
-      return {
-        success: true,
-        provider,
-        response: result,
-        attempts
-      };
-      
-    } catch (error) {
-      console.error(`❌ ${provider} failed:`, error.message);
-      attempts.push({ 
-        provider, 
-        success: false, 
-        error: error.message,
-        details: error.response?.data || error
-      });
-      lastError = error;
-      
-      if (!enableFallback) {
-        break; // Don't try other providers if fallback is disabled
-      }
-    }
+  // Only use IconicSolution for WhatsApp sending
+  try {
+    const templateName = typeof options.templateName === 'string' ? options.templateName : 'sendotp';
+    console.log(`\n🔄 [IconicOnly] Attempting WhatsApp via IconicSolution...`);
+    const result = await sendViaIconicSolution(mobile, message, templateName);
+    console.log(`✅ WhatsApp sent successfully via IconicSolution!`);
+    return {
+      success: true,
+      provider: 'iconicsolution',
+      response: result
+    };
+  } catch (error) {
+    console.error(`❌ IconicSolution failed:`, error.message);
+    return {
+      success: false,
+      error: error.message,
+      details: error.response?.data || error
+    };
   }
-  
-  // All providers failed
-  console.error('❌ All WhatsApp providers failed');
-  return {
-    success: false,
-    error: lastError?.message || 'All providers failed',
-    attempts
-  };
 }
 
 module.exports = {

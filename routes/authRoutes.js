@@ -1,6 +1,22 @@
+
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
+
+// JoinUs OTP verification endpoint
+router.post('/verify-otp', async (req, res) => {
+	try {
+		const { mobile, otp } = req.body;
+		const result = await require('../models/authModel').verifyWhatsAppOTP(mobile, otp);
+		if (!result.success) {
+			return res.status(400).json(result);
+		}
+		res.json(result);
+	} catch (error) {
+		console.error('JoinUs OTP verification error:', error);
+		return res.status(500).json({ success: false, message: 'Verification failed' });
+	}
+});
 
 
 // Login OTP

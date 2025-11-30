@@ -44,19 +44,26 @@ async function sendWhatsAppOTP(mobile, otp) {
     try {
         // Use the provided templateName or default to 'sendotp'
         const message = otp;
-        let templateName = arguments.length > 2 ? arguments[2] : 'sendotp';
-        console.log(`📱 Sending OTP to ${mobile} using template: ${templateName}`);
-        console.log(`🔑 OTP: ${otp}`);
-        const result = await sendWhatsApp(mobile, message, {
-            templateName
-        });
-        if (!result.success) {
-            throw new Error(result.error || 'Failed to send WhatsApp message');
+        let tn = arguments.length > 2 ? arguments[2] : 'sendotp';
+        console.log(`📱 [DEBUG] Sending OTP to ${mobile} using template: ${tn}`);
+        console.log(`🔑 [DEBUG] OTP: ${otp}`);
+        try {
+            const result = await sendWhatsApp(mobile, message, {
+                templateName: tn
+            });
+            console.log(`[DEBUG] sendWhatsApp result:`, result);
+            if (!result.success) {
+                console.error(`[ERROR] WhatsApp send failed:`, result);
+                throw new Error(result.error || 'Failed to send WhatsApp message');
+            }
+            console.log(`✅ OTP sent successfully via ${result.provider}`);
+            return { success: true, provider: result.provider };
+        } catch (err) {
+            console.error(`[ERROR] sendWhatsApp threw:`, err);
+            throw err;
         }
-        console.log(`✅ OTP sent successfully via ${result.provider}`);
-        return { success: true, provider: result.provider };
     } catch (error) {
-        console.error('❌ Error sending WhatsApp OTP:', error);
+        console.error('[FATAL] Error sending WhatsApp OTP:', error);
         throw error;
     }
 }

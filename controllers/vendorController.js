@@ -18,6 +18,11 @@ exports.getAllVendors = async (req, res) => {
 exports.createVendor = async (req, res) => {
   try {
     const vendorData = req.body;
+    // Check for duplicate whatsapp or email
+    const existingVendor = await vendorModel.findByWhatsappOrEmail(vendorData.whatsapp, vendorData.email);
+    if (existingVendor) {
+      return res.status(409).json({ message: 'WhatsApp number or email already exists. Please use a different one.' });
+    }
     // Required fields and regex patterns
     const requiredFields = [
       'name', 'whatsapp', 'gender', 'age', 'email', 'qualifications', 'skills', 'languages', 'experience', 'state', 'city', 'pincode', 'category', 'reason'

@@ -1,3 +1,11 @@
+// Find vendor by whatsapp or email
+exports.findByWhatsappOrEmail = async (whatsapp, email) => {
+  try {
+    return await Vendor.findOne({ $or: [ { whatsapp }, { email } ] });
+  } catch (error) {
+    throw error;
+  }
+};
 const Vendor = require('./schemas/vendorSchema');
 
 // Fetch all vendors

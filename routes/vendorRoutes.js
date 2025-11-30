@@ -9,9 +9,15 @@ router.post('/check-duplicate', async (req, res) => {
   const vendorModel = require('../models/vendorModel');
   const { whatsapp, email } = req.body;
   try {
-    const existingVendor = await vendorModel.findByWhatsappOrEmail(whatsapp, email);
-    if (existingVendor) {
-      return res.status(409).json({ message: 'WhatsApp number or email already exists. Please use a different one.' });
+    // Check for duplicate WhatsApp
+    const whatsappVendor = await vendorModel.findByWhatsappOrEmail(whatsapp, null);
+    if (whatsappVendor) {
+      return res.status(409).json({ message: 'WhatsApp number already exists. Please use a different one.' });
+    }
+    // Check for duplicate Email
+    const emailVendor = await vendorModel.findByWhatsappOrEmail(null, email);
+    if (emailVendor) {
+      return res.status(409).json({ message: 'Email address already exists. Please use a different one.' });
     }
     res.json({ message: 'OK' });
   } catch (err) {

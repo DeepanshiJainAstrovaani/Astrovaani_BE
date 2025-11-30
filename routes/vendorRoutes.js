@@ -1,3 +1,17 @@
+// POST /api/vendors/check-duplicate
+router.post('/check-duplicate', async (req, res) => {
+  const vendorModel = require('../models/vendorModel');
+  const { whatsapp, email } = req.body;
+  try {
+    const existingVendor = await vendorModel.findByWhatsappOrEmail(whatsapp, email);
+    if (existingVendor) {
+      return res.status(409).json({ message: 'WhatsApp number or email already exists. Please use a different one.' });
+    }
+    res.json({ message: 'OK' });
+  } catch (err) {
+    res.status(500).json({ message: 'Database error', error: err.message });
+  }
+});
 const express = require('express');
 const vendorController = require('../controllers/vendorController');
 const upload = require('../middleware/uploadMiddleware');

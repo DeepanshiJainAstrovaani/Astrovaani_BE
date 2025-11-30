@@ -29,7 +29,9 @@ exports.initiateWhatsAppLogin = async (mobile) => {
         }
 
         // Send OTP via WhatsApp
-        await sendWhatsAppOTP(mobile, otp);
+        // Accept templateName as optional second argument
+        let templateName = arguments.length > 1 ? arguments[1] : undefined;
+        await sendWhatsAppOTP(mobile, otp, templateName);
 
         return { success: true, message: 'OTP sent successfully via WhatsApp' };
     } catch (error) {
@@ -40,12 +42,13 @@ exports.initiateWhatsAppLogin = async (mobile) => {
 
 async function sendWhatsAppOTP(mobile, otp) {
     try {
-        // Use the new template for JoinUs OTP
-        const message = otp; // Only OTP variable is sent
-        console.log(`📱 Sending JoinUs OTP to ${mobile}`);
+        // Use the provided templateName or default to 'sendotp'
+        const message = otp;
+        let templateName = arguments.length > 2 ? arguments[2] : 'sendotp';
+        console.log(`📱 Sending OTP to ${mobile} using template: ${templateName}`);
         console.log(`🔑 OTP: ${otp}`);
         const result = await sendWhatsApp(mobile, message, {
-            templateName: 'verify_otp_joinus' // Use new template for JoinUs
+            templateName
         });
         if (!result.success) {
             throw new Error(result.error || 'Failed to send WhatsApp message');

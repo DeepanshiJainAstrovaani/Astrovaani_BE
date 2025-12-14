@@ -24,4 +24,7 @@ router.patch('/:id/status', bookingController.updateBookingStatus);
 // PATCH /api/booking/:id/payment - Update payment status
 router.patch('/:id/payment', bookingController.updatePaymentStatus);
 
+// POST /api/booking/:id/notify - Send WhatsApp notification to customer
+router.post('/:id/notify', bookingController.notifyCustomer);
+
 module.exports = router;

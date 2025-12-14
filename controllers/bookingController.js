@@ -18,6 +18,7 @@ exports.getAllBookings = async (req, res) => {
 };
 const bookingModel = require('../models/bookingModel');
 const mongoose = require('mongoose');
+const whatsappService = require('../utils/whatsappService');
 
 exports.createBooking = async (req, res) => {
   try {
@@ -251,5 +252,53 @@ exports.updatePaymentStatus = async (req, res) => {
   } catch (error) {
     console.error('🔴 Error updating payment status:', error);
     res.status(500).json({ error: 'Failed to update payment status', message: error.message });
+  }
+};
+
+// Send WhatsApp notification to customer
+exports.notifyCustomer = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { message, templateName } = req.body;
+
+    if (!message) {
+      return res.status(400).json({ error: 'Message is required' });
+    }
+
+    // Get booking with populated user details
+    const booking = await bookingModel.getBookingById(id);
+    
+    if (!booking) {
+      return res.status(404).json({ error: 'Booking not found' });
+    }
+
+    if (!booking.user_id || !booking.user_id.mobile) {
+      return res.status(400).json({ error: 'Customer mobile number not available' });
+    }
+
+    console.log(`📱 Sending WhatsApp to customer: ${booking.user_id.mobile}`);
+    
+    // Send WhatsApp using the service (tries IconicSolution, falls back to Twilio)
+    const result = await whatsappService.sendWhatsApp(
+      booking.user_id.mobile,
+      message,
+      templateName || 'sendotp'
+    );
+
+    console.log('✅ WhatsApp sent successfully:', result);
+    
+    res.status(200).json({ 
+      success: true,
+      message: 'WhatsApp notification sent successfully',
+      provider: result.provider,
+      data: result
+    });
+  } catch (error) {
+    console.error('🔴 Error sending WhatsApp notification:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to send WhatsApp notification', 
+      message: error.message 
+    });
   }
 };

@@ -70,6 +70,80 @@ exports.registerToken = async (req, res) => {
   }
 };
 
+// Register device token (PUBLIC - no auth required, userId in body)
+// This is used by mobile apps to register FCM/Expo tokens
+exports.registerDeviceToken = async (req, res) => {
+  try {
+    const { token, tokenType, platform, deviceInfo, userId } = req.body;
+
+    console.log('📱 registerDeviceToken called:', { 
+      tokenType, 
+      platform, 
+      userId,
+      tokenPreview: token?.substring(0, 30) + '...'
+    });
+
+    if (!token) {
+      return res.status(400).json({ success: false, message: 'Token is required' });
+    }
+
+    if (!tokenType) {
+      return res.status(400).json({ success: false, message: 'Token type is required (expo, fcm, or apns)' });
+    }
+
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'User ID is required' });
+    }
+
+    // Validate Expo token format if it's an Expo token
+    if (tokenType === 'expo' && !Expo.isExpoPushToken(token)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid Expo push token format' 
+      });
+    }
+
+    // Check if token already exists
+    let deviceToken = await DeviceToken.findOne({ token });
+
+    if (deviceToken) {
+      // Update existing token
+      deviceToken.userId = userId;
+      deviceToken.tokenType = tokenType;
+      deviceToken.platform = platform;
+      deviceToken.deviceInfo = deviceInfo;
+      deviceToken.isActive = true;
+      deviceToken.lastUsed = new Date();
+      await deviceToken.save();
+      console.log('✅ Device token updated for user:', userId);
+    } else {
+      // Create new token
+      deviceToken = await DeviceToken.create({
+        userId,
+        token,
+        tokenType,
+        platform,
+        deviceInfo,
+        isActive: true
+      });
+      console.log('✅ New device token created for user:', userId);
+    }
+
+    res.json({ 
+      success: true, 
+      message: `${tokenType.toUpperCase()} device token registered successfully`,
+      data: { id: deviceToken._id, tokenType, platform }
+    });
+  } catch (error) {
+    console.error('❌ Error registering device token:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to register device token',
+      error: error.message 
+    });
+  }
+};
+
 // Deactivate device token (on logout)
 exports.deactivateToken = async (req, res) => {
   try {

@@ -1,19 +1,18 @@
 const multer = require('multer');
-const path = require('path');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const cloudinary = require('../config/cloudinaryConfig');
 
-// Configure multer for handling file uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, 'community/'); // Make sure this directory exists
-  },
-  filename: function (req, file, cb) {
-    // Create a unique filename with timestamp
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
+// Configure Cloudinary storage for multer
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'vendors', // Folder name in Cloudinary
+    allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+    transformation: [{ width: 800, height: 800, crop: 'limit' }] // Optional: resize on upload
   }
 });
 
-// Create multer upload instance
+// Create multer upload instance with Cloudinary storage
 const upload = multer({
   storage: storage,
   limits: {

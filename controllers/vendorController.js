@@ -41,11 +41,11 @@ exports.createVendor = async (req, res) => {
     }
     // Set status to inreview if not provided
     vendorData.status = vendorData.status || 'inreview';
-    // Handle photo upload (if using multer)
-    if (req.file && req.file.filename) {
-      vendorData.photo = req.file.filename;
-    } else if (req.files && req.files.photo && req.files.photo[0] && req.files.photo[0].filename) {
-      vendorData.photo = req.files.photo[0].filename;
+    // Handle photo upload from Cloudinary (multer-storage-cloudinary returns path, not filename)
+    if (req.file && req.file.path) {
+      vendorData.photo = req.file.path; // Cloudinary URL
+    } else if (req.files && req.files.photo && req.files.photo[0] && req.files.photo[0].path) {
+      vendorData.photo = req.files.photo[0].path; // Cloudinary URL
     }
     if (!vendorData.photo) {
       return res.status(400).json({ message: 'Photo is required' });
@@ -115,16 +115,15 @@ exports.updateVendor = async (req, res) => {
     });
     
     if (req.files) {
-      // Handle main profile photo
-        // Check if this is an interview feedback submission (new logic)
+      // Handle main profile photo from Cloudinary
       if (req.files.photo) {
-        vendorData.photo = req.files.photo[0].filename;
+        vendorData.photo = req.files.photo[0].path; // Cloudinary URL
       }
       
-      // Handle additional photos
+      // Handle additional photos from Cloudinary
       ['photo2', 'photo3', 'photo4', 'photo5'].forEach((photoField, index) => {
         if (req.files[photoField]) {
-          vendorData[photoField] = req.files[photoField][0].filename;
+          vendorData[photoField] = req.files[photoField][0].path; // Cloudinary URL
         }
       });
     }

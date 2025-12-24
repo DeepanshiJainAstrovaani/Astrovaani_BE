@@ -25,7 +25,8 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 app.options('*', cors()); // Allow requests from your Expo app
-app.use(express.json()); // Parse JSON data in requests
+app.use(express.json({ limit: '50mb' })); // Parse JSON data in requests with 50MB limit
+app.use(express.urlencoded({ limit: '50mb', extended: true })); // Parse URL-encoded data with 50MB limit
 
 // Serve uploaded images
 app.use('/community', express.static(path.join(__dirname, 'community')));

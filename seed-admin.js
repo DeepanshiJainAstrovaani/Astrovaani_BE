@@ -21,39 +21,60 @@ const seedAdmin = async () => {
   try {
     await connectDB();
 
-    // Check if admin already exists
-    const existingAdmin = await Admin.findOne({ phoneNumber: '8168095773' });
+    // Admin phone numbers to create
+    const adminPhones = [
+      { 
+        phoneNumber: '8168095773', 
+        name: 'Super Admin',
+        email: 'admin@astrovaani.com'
+      },
+      { 
+        phoneNumber: '8789601387', 
+        name: 'Admin 2',
+        email: 'admin2@astrovaani.com'
+      },
+      { 
+        phoneNumber: '9667356174', 
+        name: 'Admin 3',
+        email: 'admin3@astrovaani.com'
+      }
+    ];
 
-    if (existingAdmin) {
-      console.log('⚠️  Admin already exists');
-      console.log('Admin Details:', {
-        name: existingAdmin.name,
-        phoneNumber: existingAdmin.phoneNumber,
-        role: existingAdmin.role
+    for (const adminData of adminPhones) {
+      // Check if admin already exists
+      const existingAdmin = await Admin.findOne({ phoneNumber: adminData.phoneNumber });
+
+      if (existingAdmin) {
+        console.log(`⚠️  Admin ${adminData.phoneNumber} already exists`);
+        console.log('Admin Details:', {
+          name: existingAdmin.name,
+          phoneNumber: existingAdmin.phoneNumber,
+          role: existingAdmin.role
+        });
+        continue;
+      }
+
+      // Create admin
+      const admin = new Admin({
+        name: adminData.name,
+        phoneNumber: adminData.phoneNumber,
+        email: adminData.email,
+        role: 'super-admin',
+        isActive: true
       });
-      process.exit(0);
+
+      await admin.save();
+
+      console.log(`✅ Admin ${adminData.phoneNumber} created successfully!`);
+      console.log('Admin Details:', {
+        name: admin.name,
+        phoneNumber: admin.phoneNumber,
+        email: admin.email,
+        role: admin.role
+      });
     }
 
-    // Create first admin
-    const admin = new Admin({
-      name: 'Super Admin',
-      phoneNumber: '8168095773',
-      email: 'admin@astrovaani.com',
-      role: 'super-admin',
-      isActive: true
-    });
-
-    await admin.save();
-
-    console.log('✅ Admin created successfully!');
-    console.log('Admin Details:', {
-      name: admin.name,
-      phoneNumber: admin.phoneNumber,
-      email: admin.email,
-      role: admin.role
-    });
-    console.log('\n📱 You can now login with this phone number');
-
+    console.log('\n📱 All admins can now login with their phone numbers');
     process.exit(0);
   } catch (error) {
     console.error('❌ Error seeding admin:', error);

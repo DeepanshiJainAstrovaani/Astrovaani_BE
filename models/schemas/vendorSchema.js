@@ -58,6 +58,10 @@ const vendorSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  availability: {
+    type: String,
+    trim: true
+  },
   price: {
     type: Number,
     min: 0

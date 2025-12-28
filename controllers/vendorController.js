@@ -1766,3 +1766,99 @@ exports.rejectVendorAgreement = async (req, res) => {
     });
   }
 };
+
+// ==================== REJECT VENDOR WITH WHATSAPP NOTIFICATION ====================
+exports.rejectVendorNotification = async (req, res) => {
+  try {
+    const vendorId = req.params.id;
+    const { mobile, templateName, message, reason } = req.body;
+
+    console.log('📱 Reject Vendor Notification Request');
+    console.log('   Vendor ID:', vendorId);
+    console.log('   Mobile:', mobile);
+    console.log('   Template:', templateName);
+    console.log('   Reason:', reason);
+
+    if (!mobile || !templateName) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mobile number and template name are required'
+      });
+    }
+
+    // Normalize mobile number
+    const normalizeMobile = (raw) => {
+      if (!raw) return raw;
+      let digits = raw.replace(/[^0-9]/g, '');
+      if (digits.length === 10) digits = '91' + digits;
+      if (digits.length === 11 && digits.startsWith('0')) digits = '91' + digits.slice(1);
+      return digits;
+    };
+
+    const mobileFormatted = normalizeMobile(mobile);
+    
+    // Send WhatsApp notification using IconicSolution API
+    const sendRejectionNotification = async () => {
+      const apiKey = process.env.ICONIC_API_KEY;
+      const whatsappApiUrl = 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
+
+      if (!apiKey) {
+        throw new Error('ICONIC_API_KEY not configured');
+      }
+
+      const FormData = require('form-data');
+      const formData = new FormData();
+      formData.append('apikey', apiKey);
+      formData.append('mobile', mobileFormatted);
+      formData.append('templatename', templateName);
+      formData.append('dvariables', message);
+
+      console.log('🔄 Sending rejection WhatsApp via IconicSolution');
+      console.log('   Mobile:', mobileFormatted);
+      console.log('   Template:', templateName);
+      console.log('   Variables:', message);
+
+      const axios = require('axios');
+      const response = await axios.post(whatsappApiUrl, formData, {
+        headers: formData.getHeaders(),
+        timeout: 15000
+      });
+
+      console.log('✅ WhatsApp API Response:', response.data);
+
+      // Log notification to database
+      const MessageNotification = require('../models/notificationModel');
+      await MessageNotification.create({
+        vendorId,
+        type: 'whatsapp',
+        payload: {
+          mobile: mobileFormatted,
+          templateName,
+          variables: JSON.parse(message),
+          reason
+        },
+        status: 'sent',
+        providerResponse: response.data
+      });
+
+      return response.data;
+    };
+
+    // Send notification
+    const result = await sendRejectionNotification();
+
+    res.json({
+      success: true,
+      message: 'Rejection notification sent successfully',
+      data: result
+    });
+
+  } catch (error) {
+    console.error('❌ Error sending rejection notification:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error sending rejection notification',
+      error: error.message
+    });
+  }
+};

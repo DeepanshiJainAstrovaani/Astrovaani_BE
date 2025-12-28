@@ -106,4 +106,7 @@ router.post('/:id/approve-agreement', vendorController.approveVendorForAgreement
 // POST /api/vendors/:id/reject-agreement - Reject agreement with reason
 router.post('/:id/reject-agreement', vendorController.rejectVendorAgreement);
 
+// POST /api/vendors/:id/reject-notify - Send rejection notification with reason
+router.post('/:id/reject-notify', vendorController.rejectVendorNotification);
+
 module.exports = router;

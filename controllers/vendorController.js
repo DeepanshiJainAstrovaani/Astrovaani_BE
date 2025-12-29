@@ -1862,3 +1862,43 @@ exports.rejectVendorNotification = async (req, res) => {
     });
   }
 };
+
+// ==================== APPROVE VENDOR AGREEMENT ====================
+exports.approveVendorForAgreement = async (req, res) => {
+  try {
+    const vendorId = req.params.id;
+
+    console.log('✅ Approving agreement for vendor:', vendorId);
+
+    // Update vendor agreement status but keep in 'inprocess' until bank details + terms accepted
+    const vendor = await vendorModel.updateVendor(vendorId, {
+      agreementStatus: 'approved',
+      agreementApprovedAt: new Date(),
+      // Don't change status to active yet - wait for bank details and terms
+    });
+
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vendor not found'
+      });
+    }
+
+    // No WhatsApp notification needed at this stage
+    // Vendor will see approved status in app and can proceed to bank details
+
+    res.json({
+      success: true,
+      message: 'Agreement approved successfully. Vendor can now complete bank details.',
+      vendor
+    });
+
+  } catch (error) {
+    console.error('❌ Error approving agreement:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error approving agreement',
+      error: error.message
+    });
+  }
+};

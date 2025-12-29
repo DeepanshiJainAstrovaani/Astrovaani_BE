@@ -135,6 +135,8 @@ const vendorSchema = new mongoose.Schema({
   interviewCompletedAt: { type: Date }, // Timestamp when interview feedback was saved
   
   // Agreement fields
+  agreement: { type: String, trim: true }, // Cloudinary URL of uploaded signed agreement
+  agreementuploaddate: { type: Date }, // When vendor uploaded the agreement (from app)
   agreementStatus: { type: String, trim: true }, // pending | approved | rejected
   agreementSentAt: { type: Date }, // When agreement notification was sent
   agreementRejectionReason: { type: String, trim: true }, // Reason for rejection

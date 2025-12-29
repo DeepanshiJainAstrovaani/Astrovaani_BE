@@ -1811,7 +1811,7 @@ exports.rejectVendorNotification = async (req, res) => {
       formData.append('apikey', apiKey);
       formData.append('mobile', mobileFormatted);
       formData.append('templatename', templateName);
-      formData.append('dvariables', message);
+      formData.append('dvariables', message); // message is already JSON string like '["name"]'
 
       console.log('🔄 Sending rejection WhatsApp via IconicSolution');
       console.log('   Mobile:', mobileFormatted);

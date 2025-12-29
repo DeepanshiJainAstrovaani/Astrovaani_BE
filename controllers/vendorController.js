@@ -1834,7 +1834,7 @@ exports.rejectVendorNotification = async (req, res) => {
         payload: {
           mobile: mobileFormatted,
           templateName,
-          variables: JSON.parse(message),
+          variables: message, // Already a JSON string from frontend
           reason
         },
         status: 'sent',

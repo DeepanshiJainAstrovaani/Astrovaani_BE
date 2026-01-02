@@ -141,6 +141,7 @@ const vendorSchema = new mongoose.Schema({
   agreementSentAt: { type: Date }, // When agreement notification was sent
   agreementRejectionReason: { type: String, trim: true }, // Reason for rejection
   agreementRejectedAt: { type: Date }, // When agreement was rejected
+  agreementRejectionCount: { type: Number, default: 0 }, // Number of times agreement was rejected
   agreementUploadedAt: { type: Date }, // When vendor uploaded signed agreement
   agreementApprovedAt: { type: Date }, // When admin approved the agreement
 

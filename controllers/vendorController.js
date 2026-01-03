@@ -1522,7 +1522,7 @@ exports.approveVendorForAgreement = async (req, res) => {
       try {
         const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
         const apiKey = process.env.ICONIC_API_KEY;
-        const templateName = 'vendor_agreement_approved';
+        const templateName = 'vendor_agreement_approved_';
 
         if (!apiKey) {
           console.error('❌ ICONIC_API_KEY not found in .env');
@@ -1561,7 +1561,7 @@ exports.approveVendorForAgreement = async (req, res) => {
           console.log('✅ Agreement approval notification sent successfully!');
           
           // Log notification
-          await Notification.create({ 
+          await MessageNotification.create({ 
             vendorId: vendor._id, 
             type: 'whatsapp', 
             payload: { mobile: mobileFormatted, templateName, variables: templateVars }, 
@@ -1570,7 +1570,7 @@ exports.approveVendorForAgreement = async (req, res) => {
           });
         } else {
           console.warn('⚠️ WhatsApp API returned non-success status:', whatsappResponse);
-          await Notification.create({ 
+          await MessageNotification.create({ 
             vendorId: vendor._id, 
             type: 'whatsapp', 
             payload: { mobile: mobileFormatted, templateName, variables: templateVars }, 
@@ -1583,10 +1583,10 @@ exports.approveVendorForAgreement = async (req, res) => {
         console.error('❌ WhatsApp send error:', JSON.stringify(errDetail, null, 2));
         
         // Log failed notification
-        await Notification.create({ 
+        await MessageNotification.create({ 
           vendorId: vendor._id, 
           type: 'whatsapp', 
-          payload: { mobile: mobileFormatted, templateName: 'vendor_agreement_approved' }, 
+          payload: { mobile: mobileFormatted, templateName: 'vendor_agreement_approved_' }, 
           status: 'failed', 
           error: errDetail
         });

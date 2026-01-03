@@ -1470,11 +1470,10 @@ exports.cancelInterview = async (req, res) => {
   }
 };
 
-// Approve vendor for agreement (send agreement ready notification)
+// Approve vendor for agreement (when admin approves uploaded agreement)
 exports.approveVendorForAgreement = async (req, res) => {
   try {
     const { id } = req.params;
-    const { appDownloadLink } = req.body; // Optional app download link
 
     const vendor = await vendorModel.getVendorById(id);
     
@@ -1485,12 +1484,12 @@ exports.approveVendorForAgreement = async (req, res) => {
       });
     }
 
-    // Update vendor status
-    vendor.agreementStatus = 'pending';
-    vendor.agreementSentAt = new Date();
+    // Update vendor agreement status to approved
+    vendor.agreementStatus = 'approved';
+    vendor.agreementApprovedAt = new Date();
     await vendor.save();
 
-    // Send WhatsApp notification with app link
+    // Send WhatsApp notification about agreement approval
     const name = (vendor.name || '').trim();
     const mobile = (vendor.phone || vendor.whatsapp || '').replace(/\s+/g, '');
     
@@ -1498,7 +1497,7 @@ exports.approveVendorForAgreement = async (req, res) => {
       console.warn('⚠️ No mobile number found for vendor');
       return res.json({
         success: true,
-        message: 'Agreement status updated but WhatsApp not sent (no phone number)'
+        message: 'Agreement approved but WhatsApp not sent (no phone number)'
       });
     }
 
@@ -1513,17 +1512,17 @@ exports.approveVendorForAgreement = async (req, res) => {
     
     const mobileFormatted = normalizeMobile(mobile);
 
-    console.log('📱 Sending agreement ready notification:', {
+    console.log('📱 Sending agreement approval notification:', {
       vendorName: vendor.name,
       phone: mobileFormatted
     });
 
     // Send WhatsApp notification asynchronously
-    const sendAgreementNotification = async () => {
+    const sendApprovalNotification = async () => {
       try {
         const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
         const apiKey = process.env.ICONIC_API_KEY;
-        const templateName = 'vendor_approved_agreement_ready';
+        const templateName = 'vendor_agreement_approved';
 
         if (!apiKey) {
           console.error('❌ ICONIC_API_KEY not found in .env');
@@ -1559,7 +1558,7 @@ exports.approveVendorForAgreement = async (req, res) => {
           whatsappResponse.statuscode === 2000 ||
           whatsappResponse.statusCode === 200
         )) {
-          console.log('✅ Agreement notification sent successfully!');
+          console.log('✅ Agreement approval notification sent successfully!');
           
           // Log notification
           await Notification.create({ 
@@ -1587,7 +1586,7 @@ exports.approveVendorForAgreement = async (req, res) => {
         await Notification.create({ 
           vendorId: vendor._id, 
           type: 'whatsapp', 
-          payload: { mobile: mobileFormatted, templateName: 'vendor_approved_agreement_ready' }, 
+          payload: { mobile: mobileFormatted, templateName: 'vendor_agreement_approved' }, 
           status: 'failed', 
           error: errDetail
         });
@@ -1595,20 +1594,24 @@ exports.approveVendorForAgreement = async (req, res) => {
     };
 
     // Send notification asynchronously
-    sendAgreementNotification().catch(err => {
+    sendApprovalNotification().catch(err => {
       console.error('❌ Background WhatsApp notification failed:', err.message);
     });
 
     res.json({
       success: true,
-      message: 'Agreement ready notification sent successfully'
+      message: 'Agreement approved successfully',
+      data: {
+        agreementStatus: vendor.agreementStatus,
+        agreementApprovedAt: vendor.agreementApprovedAt
+      }
     });
 
   } catch (error) {
-    console.error('❌ Error approving vendor for agreement:', error);
+    console.error('❌ Error approving agreement:', error);
     res.status(500).json({ 
       success: false,
-      message: 'Error sending agreement notification',
+      message: 'Error approving agreement',
       error: error.message 
     });
   }
@@ -1863,42 +1866,3 @@ exports.rejectVendorNotification = async (req, res) => {
   }
 };
 
-// ==================== APPROVE VENDOR AGREEMENT ====================
-exports.approveVendorForAgreement = async (req, res) => {
-  try {
-    const vendorId = req.params.id;
-
-    console.log('✅ Approving agreement for vendor:', vendorId);
-
-    // Update vendor agreement status but keep in 'inprocess' until bank details + terms accepted
-    const vendor = await vendorModel.updateVendor(vendorId, {
-      agreementStatus: 'approved',
-      agreementApprovedAt: new Date(),
-      // Don't change status to active yet - wait for bank details and terms
-    });
-
-    if (!vendor) {
-      return res.status(404).json({
-        success: false,
-        message: 'Vendor not found'
-      });
-    }
-
-    // No WhatsApp notification needed at this stage
-    // Vendor will see approved status in app and can proceed to bank details
-
-    res.json({
-      success: true,
-      message: 'Agreement approved successfully. Vendor can now complete bank details.',
-      vendor
-    });
-
-  } catch (error) {
-    console.error('❌ Error approving agreement:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error approving agreement',
-      error: error.message
-    });
-  }
-};

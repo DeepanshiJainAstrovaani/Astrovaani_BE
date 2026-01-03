@@ -1531,7 +1531,7 @@ exports.approveVendorForAgreement = async (req, res) => {
 
         console.log('🔄 Sending WhatsApp via template:', templateName);
         console.log('   Mobile:', mobileFormatted);
-        console.log('   Variables:', [name]);
+        console.log('   Variables:', name);
         
         const FormData = require('form-data');
         const formData = new FormData();
@@ -1539,9 +1539,8 @@ exports.approveVendorForAgreement = async (req, res) => {
         formData.append('mobile', mobileFormatted);
         formData.append('templatename', templateName);
         
-        // Template variables: vendor name
-        const templateVars = [name];
-        formData.append('dvariables', JSON.stringify(templateVars));
+        // Template variable: vendor name (as plain string, not array)
+        formData.append('dvariables', name);
 
         const response = await axios.post(whatsappApiUrl, formData, {
           headers: formData.getHeaders(),
@@ -1564,7 +1563,7 @@ exports.approveVendorForAgreement = async (req, res) => {
           await MessageNotification.create({ 
             vendorId: vendor._id, 
             type: 'whatsapp', 
-            payload: { mobile: mobileFormatted, templateName, variables: templateVars }, 
+            payload: { mobile: mobileFormatted, templateName, variables: name }, 
             status: 'sent', 
             providerResponse: whatsappResponse
           });
@@ -1573,7 +1572,7 @@ exports.approveVendorForAgreement = async (req, res) => {
           await MessageNotification.create({ 
             vendorId: vendor._id, 
             type: 'whatsapp', 
-            payload: { mobile: mobileFormatted, templateName, variables: templateVars }, 
+            payload: { mobile: mobileFormatted, templateName, variables: name }, 
             status: 'failed', 
             error: whatsappResponse
           });

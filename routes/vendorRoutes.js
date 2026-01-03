@@ -109,4 +109,7 @@ router.post('/:id/reject-agreement', vendorController.rejectVendorAgreement);
 // POST /api/vendors/:id/reject-notify - Send rejection notification with reason
 router.post('/:id/reject-notify', vendorController.rejectVendorNotification);
 
+// POST /api/vendors/:id/onboard - Onboard vendor (set status to active)
+router.post('/:id/onboard', vendorController.onboardVendor);
+
 module.exports = router;

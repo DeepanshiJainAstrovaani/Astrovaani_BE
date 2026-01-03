@@ -1616,6 +1616,176 @@ exports.approveVendorForAgreement = async (req, res) => {
   }
 };
 
+// Onboard vendor (final step - set status to active)
+exports.onboardVendor = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const vendor = await vendorModel.getVendorById(id);
+    
+    if (!vendor) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Vendor not found' 
+      });
+    }
+
+    // Verify all requirements are met
+    if (vendor.agreementStatus !== 'approved') {
+      return res.status(400).json({
+        success: false,
+        message: 'Agreement must be approved before onboarding'
+      });
+    }
+
+    if (!vendor.accountholder || !vendor.accountno || !vendor.ifsc) {
+      return res.status(400).json({
+        success: false,
+        message: 'Bank details must be completed before onboarding'
+      });
+    }
+
+    if (!vendor.agree) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vendor must accept terms before onboarding'
+      });
+    }
+
+    // Update vendor status to active
+    vendor.status = 'active';
+    vendor.onboardingstatus = 'completed';
+    vendor.onboardedAt = new Date();
+    await vendor.save();
+
+    // Send WhatsApp notification about successful onboarding
+    const name = (vendor.name || '').trim();
+    const mobile = (vendor.phone || vendor.whatsapp || '').replace(/\s+/g, '');
+    
+    if (!mobile) {
+      console.warn('⚠️ No mobile number found for vendor');
+      return res.json({
+        success: true,
+        message: 'Vendor onboarded but WhatsApp not sent (no phone number)',
+        data: { status: vendor.status, onboardingstatus: vendor.onboardingstatus }
+      });
+    }
+
+    // Normalize mobile to include country code
+    const normalizeMobile = (raw) => {
+      if (!raw) return raw;
+      let digits = raw.replace(/[^0-9]/g, '');
+      if (digits.length === 10) digits = '91' + digits;
+      if (digits.length === 11 && digits.startsWith('0')) digits = '91' + digits.slice(1);
+      return digits;
+    };
+    
+    const mobileFormatted = normalizeMobile(mobile);
+
+    console.log('📱 Sending onboarding success notification:', {
+      vendorName: vendor.name,
+      phone: mobileFormatted
+    });
+
+    // Send WhatsApp notification asynchronously
+    const sendOnboardingNotification = async () => {
+      try {
+        const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
+        const apiKey = process.env.ICONIC_API_KEY;
+        const templateName = 'vendor_onboarded_';
+
+        if (!apiKey) {
+          console.error('❌ ICONIC_API_KEY not found in .env');
+          return;
+        }
+
+        console.log('🔄 Sending WhatsApp via template:', templateName);
+        console.log('   Mobile:', mobileFormatted);
+        console.log('   Variables:', name);
+        
+        const FormData = require('form-data');
+        const formData = new FormData();
+        formData.append('apikey', apiKey);
+        formData.append('mobile', mobileFormatted);
+        formData.append('templatename', templateName);
+        
+        // Template variable: vendor name (as plain string, not array)
+        formData.append('dvariables', name);
+
+        const response = await axios.post(whatsappApiUrl, formData, {
+          headers: formData.getHeaders(),
+          timeout: 30000
+        });
+
+        const whatsappResponse = response.data;
+        console.log('✅ WhatsApp API Response:', JSON.stringify(whatsappResponse, null, 2));
+        
+        if (whatsappResponse && (
+          whatsappResponse.status === 'success' || 
+          whatsappResponse.success === true ||
+          whatsappResponse.statuscode === 200 ||
+          whatsappResponse.statuscode === 2000 ||
+          whatsappResponse.statusCode === 200
+        )) {
+          console.log('✅ Onboarding notification sent successfully!');
+          
+          // Log notification
+          await MessageNotification.create({ 
+            vendorId: vendor._id, 
+            type: 'whatsapp', 
+            payload: { mobile: mobileFormatted, templateName, variables: name }, 
+            status: 'sent', 
+            providerResponse: whatsappResponse
+          });
+        } else {
+          console.warn('⚠️ WhatsApp API returned non-success status:', whatsappResponse);
+          await MessageNotification.create({ 
+            vendorId: vendor._id, 
+            type: 'whatsapp', 
+            payload: { mobile: mobileFormatted, templateName, variables: name }, 
+            status: 'failed', 
+            error: whatsappResponse
+          });
+        }
+      } catch (waErr) {
+        const errDetail = waErr?.response?.data || { message: waErr.message, code: waErr.code };
+        console.error('❌ WhatsApp send error:', JSON.stringify(errDetail, null, 2));
+        
+        // Log failed notification
+        await MessageNotification.create({ 
+          vendorId: vendor._id, 
+          type: 'whatsapp', 
+          payload: { mobile: mobileFormatted, templateName: 'vendor_onboarded_' }, 
+          status: 'failed', 
+          error: errDetail
+        });
+      }
+    };
+
+    // Send notification asynchronously
+    sendOnboardingNotification().catch(err => {
+      console.error('❌ Background WhatsApp notification failed:', err.message);
+    });
+
+    return res.json({
+      success: true,
+      message: 'Vendor onboarded successfully',
+      data: {
+        status: vendor.status,
+        onboardingstatus: vendor.onboardingstatus,
+        onboardedAt: vendor.onboardedAt
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error onboarding vendor:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error onboarding vendor',
+      error: error.message
+    });
+  }
+};
+
 // Reject vendor agreement
 exports.rejectVendorAgreement = async (req, res) => {
   try {

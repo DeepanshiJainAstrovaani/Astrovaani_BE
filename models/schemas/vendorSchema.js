@@ -62,6 +62,18 @@ const vendorSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  chatstatus: {
+    type: String,
+    enum: ['online', 'offline'],
+    default: 'offline',
+    trim: true
+  },
+  callstatus: {
+    type: String,
+    enum: ['online', 'offline'],
+    default: 'offline',
+    trim: true
+  },
   price: {
     type: Number,
     min: 0

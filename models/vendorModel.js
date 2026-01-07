@@ -21,7 +21,13 @@ const Vendor = require('./schemas/vendorSchema');
 // Fetch all vendors
 exports.getAllVendors = async () => {
   try {
-    return await Vendor.find({});
+    const vendors = await Vendor.find({}).lean();
+    // Convert _id to id for each vendor
+    return vendors.map(v => ({
+      ...v,
+      id: v._id.toString(),
+      _id: undefined
+    }));
   } catch (error) {
     throw error;
   }

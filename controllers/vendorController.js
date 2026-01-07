@@ -1165,9 +1165,8 @@ exports.sendReminder = async (req, res) => {
           formData.append('mobile', mobileFormatted);
           formData.append('templatename', templateName);
           
-          // Template has 2 variables: {{1}} = vendor name, {{2}} = full notification message with link
-          const messageContent = `Your interview has been scheduled! Click here to book your slot: ${interviewLink}`;
-          formData.append('dvariables', JSON.stringify([name, messageContent]));
+          // Template has 2 variables: {{1}} = vendor name, {{2}} = interview link (just the URL)
+          formData.append('dvariables', JSON.stringify([name, interviewLink]));
 
           const response = await axios.post(whatsappApiUrl, formData, {
             headers: formData.getHeaders(),

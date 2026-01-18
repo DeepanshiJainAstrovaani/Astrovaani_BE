@@ -396,10 +396,11 @@ exports.notifyVendorSlots = async (req, res) => {
           formData.append('templatename', templateName);
           
           // Template has 2 variables: {{1}} = vendor name, {{2}} = interview link URL only
-          formData.append('dvariables', JSON.stringify([name, link]));
+          // Send as comma-separated string instead of JSON array
+          const dvariablesValue = `${name},${link}`;
+          formData.append('dvariables', dvariablesValue);
           
-          console.log('   Debug - Variable 1 (name):', name);
-          console.log('   Debug - Variable 2 (link):', link);
+          console.log('   Debug - dvariables (comma-separated):', dvariablesValue);
           
           const sendRes = await axios.post(whatsappApiUrl, formData, { 
             headers: formData.getHeaders(),
@@ -1169,10 +1170,11 @@ exports.sendReminder = async (req, res) => {
           formData.append('templatename', templateName);
           
           // Template has 2 variables: {{1}} = vendor name, {{2}} = interview link URL only
-          formData.append('dvariables', JSON.stringify([name, interviewLink]));
+          // Send as comma-separated string instead of JSON array
+          const dvariablesValue = `${name},${interviewLink}`;
+          formData.append('dvariables', dvariablesValue);
           
-          console.log('   Debug - Variable 1 (name):', name);
-          console.log('   Debug - Variable 2 (link):', interviewLink);
+          console.log('   Debug - dvariables (comma-separated):', dvariablesValue);
 
           const response = await axios.post(whatsappApiUrl, formData, {
             headers: formData.getHeaders(),

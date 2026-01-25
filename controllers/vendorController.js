@@ -955,13 +955,14 @@ exports.notifyVendor = async (req, res) => {
     }
     
     console.log('✅ Vendor found:', vendor.name);
+    console.log('   Interview code:', vendor.interviewcode);
+    console.log('   Schedules:', vendor.schedules?.length || 0);
 
-    const confirmedSlot = vendor.schedules.find(s => s.status === 'confirmed');
-    
-    if (!confirmedSlot) {
+    // Check if vendor has interview code (required for sending link)
+    if (!vendor.interviewcode) {
       return res.status(400).json({ 
         success: false,
-        message: 'No confirmed interview slot found' 
+        message: 'No interview code found for this vendor' 
       });
     }
 
@@ -987,26 +988,10 @@ exports.notifyVendor = async (req, res) => {
     
     const mobileFormatted = normalizeMobile(mobile);
 
-    // Format interview time
-    const interviewDate = new Date(confirmedSlot.scheduledAt);
-    const formattedDate = interviewDate.toLocaleDateString('en-GB', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric'
-    });
-    const formattedTime = interviewDate.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    });
-    const duration = confirmedSlot.duration || 30;
-    const meetingLink = confirmedSlot.meetLink || confirmedSlot.meetingLink || '';
-
     console.log('📲 Sending interview reminder:', {
       vendorName: vendor.name,
-      scheduledAt: confirmedSlot.scheduledAt,
-      phone: mobileFormatted,
-      meetingLink: meetingLink || 'Not provided'
+      interviewCode: vendor.interviewcode,
+      phone: mobileFormatted
     });
 
     // Send WhatsApp message via template-based API

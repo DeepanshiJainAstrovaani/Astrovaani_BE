@@ -940,6 +940,9 @@ exports.sendMeetingLink = async (req, res) => {
 // Notify vendor (interview reminder)
 exports.notifyVendor = async (req, res) => {
   try {
+    console.log('🚀 ========== NOTIFY VENDOR (REMINDER) CALLED ==========');
+    console.log('📍 Vendor ID:', req.params.id);
+    
     const { id } = req.params;
 
     const vendor = await vendorModel.getVendorById(id);
@@ -950,6 +953,8 @@ exports.notifyVendor = async (req, res) => {
         message: 'Vendor not found' 
       });
     }
+    
+    console.log('✅ Vendor found:', vendor.name);
 
     const confirmedSlot = vendor.schedules.find(s => s.status === 'confirmed');
     
@@ -1013,10 +1018,12 @@ exports.notifyVendor = async (req, res) => {
       console.log('🧪 DUMMY MODE - Simulating WhatsApp send');
       whatsappSent = true;
     } else {
-      const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
+      const whatsappApiUrl = 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
       const apiKey = process.env.ICONIC_API_KEY;
-      // Use simple reminder template (matches the popup message)
-      const templateName = 'vendor_interview_reminder_simple';
+      
+      // Use the same working template as notification
+      const templateName = 'vendor_slot_selection_link';
+      const interviewLink = `https://astrovaani-web-fe.vercel.app/interview?code=${vendor.interviewcode}`;
 
       if (!apiKey) {
         console.error('❌ ICONIC_API_KEY not found in .env');
@@ -1025,16 +1032,17 @@ exports.notifyVendor = async (req, res) => {
           console.log('🔄 Sending WhatsApp reminder via template:', templateName);
           console.log('   Mobile:', mobileFormatted);
           console.log('   Vendor Name:', name);
+          console.log('   Interview Link:', interviewLink);
           
           const FormData = require('form-data');
           const formData = new FormData();
           formData.append('apikey', apiKey);
           formData.append('mobile', mobileFormatted);
           formData.append('templatename', templateName);
+          formData.append('dvariables', `${name},${interviewLink}`);
           
-          // Template has 1 variable: {{1}} = vendor name
-          const templateVars = [name];
-          formData.append('dvariables', JSON.stringify(templateVars));
+          console.log('📤 Sending reminder with dvariables:', `${name},${interviewLink}`);
+          console.log('📤 Sending reminder with dvariables:', `${name},${interviewLink}`);
 
           const response = await axios.post(whatsappApiUrl, formData, {
             headers: formData.getHeaders(),

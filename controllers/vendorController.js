@@ -279,9 +279,14 @@ exports.createVendorSchedules = async (req, res) => {
 // Notify vendor about proposed slots
 exports.notifyVendorSlots = async (req, res) => {
   try {
+    console.log('🚀 ========== NOTIFY VENDOR SLOTS CALLED ==========');
+    console.log('📍 Vendor ID:', req.params.id);
+    
     const vendorId = req.params.id;
     const vendor = await vendorModel.getVendorById(vendorId);
     if (!vendor) return res.status(404).json({ message: 'Vendor not found' });
+    
+    console.log('✅ Vendor found:', vendor.name);
 
     // Optionally set interviewer id if provided from frontend/admin
     const adminId = (req.body && req.body.adminId) ? String(req.body.adminId) : null;
@@ -376,8 +381,8 @@ exports.notifyVendorSlots = async (req, res) => {
       // REAL MODE: Use template-based API (direct link template)
       const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
       const apiKey = process.env.ICONIC_API_KEY;
-      // Template with direct link in message (no button issues!)
-      const templateName = 'vendor_interview_notification_';
+      // Use new template with direct link
+      const templateName = 'vendor_slot_selection_link';
       
       if (!apiKey) {
         console.error('❌ ICONIC_API_KEY not found in .env');
@@ -391,16 +396,24 @@ exports.notifyVendorSlots = async (req, res) => {
           
           const FormData = require('form-data');
           const formData = new FormData();
+          
+          // Explicitly use /bytemplate endpoint
+          const whatsappApiUrl = 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
+          
           formData.append('apikey', apiKey);
           formData.append('mobile', mobileFormatted);
           formData.append('templatename', templateName);
+          formData.append('dvariables', `${name},${link}`);
           
-          // Template has 2 variables: {{1}} = vendor name, {{2}} = interview link URL only
-          // Send as comma-separated string instead of JSON array
-          const dvariablesValue = `${name},${link}`;
-          formData.append('dvariables', dvariablesValue);
-          
-          console.log('   Debug - dvariables (comma-separated):', dvariablesValue);
+          // Debug: Log all form data
+          console.log('📤 Sending to API:', whatsappApiUrl);
+          console.log('📋 Form Data being sent:');
+          console.log('   - apikey:', apiKey ? '***' + apiKey.slice(-4) : 'MISSING');
+          console.log('   - mobile:', mobileFormatted);
+          console.log('   - templatename:', templateName);
+          console.log('   - dvariables:', `${name},${link}`);
+          console.log('   - dvariables length:', `${name},${link}`.length);
+          console.log('   - dvariables has comma:', `${name},${link}`.includes(','));
           
           const sendRes = await axios.post(whatsappApiUrl, formData, { 
             headers: formData.getHeaders(),
@@ -409,6 +422,15 @@ exports.notifyVendorSlots = async (req, res) => {
           
           whatsappResponse = sendRes.data;
           console.log(`✅ WhatsApp API response:`, JSON.stringify(whatsappResponse, null, 2));
+          
+          // Debug: Check error details
+          if (whatsappResponse.status === 'error' || whatsappResponse.errormsg) {
+            console.error('❌ API Error Details:');
+            console.error('   Status:', whatsappResponse.status);
+            console.error('   Error Message:', whatsappResponse.errormsg);
+            console.error('   Status Code:', whatsappResponse.statuscode);
+            console.error('   Full Response:', JSON.stringify(whatsappResponse, null, 2));
+          }
           
           // Check for success (handle different response formats)
           if (whatsappResponse && (
@@ -1147,8 +1169,8 @@ exports.sendReminder = async (req, res) => {
     } else {
       const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
       const apiKey = process.env.ICONIC_API_KEY;
-      // Use template with direct link (no button complexity)
-      const templateName = 'vendor_interview_notification_';
+      // Use new template with direct link
+      const templateName = 'vendor_slot_selection_link';
       
       // Get interview code from vendor
       const interviewCode = vendor.interviewcode;
@@ -1165,18 +1187,22 @@ exports.sendReminder = async (req, res) => {
           
           const FormData = require('form-data');
           const formData = new FormData();
+          
+          // Explicitly use /bytemplate endpoint
+          const whatsappApiUrlByTemplate = 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
+          
           formData.append('apikey', apiKey);
           formData.append('mobile', mobileFormatted);
           formData.append('templatename', templateName);
           
-          // Template has 2 variables: {{1}} = vendor name, {{2}} = interview link URL only
-          // Send as comma-separated string instead of JSON array
-          const dvariablesValue = `${name},${interviewLink}`;
-          formData.append('dvariables', dvariablesValue);
+          // Try v1, v2 parameter format instead of dvariables
+          formData.append('v1', name);
+          formData.append('v2', interviewLink);
           
-          console.log('   Debug - dvariables (comma-separated):', dvariablesValue);
+          console.log('   Debug - v1 (name):', name);
+          console.log('   Debug - v2 (link):', interviewLink);
 
-          const response = await axios.post(whatsappApiUrl, formData, {
+          const response = await axios.post(whatsappApiUrlByTemplate, formData, {
             headers: formData.getHeaders(),
             timeout: 30000
           });

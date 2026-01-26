@@ -1198,13 +1198,9 @@ exports.sendReminder = async (req, res) => {
           formData.append('apikey', apiKey);
           formData.append('mobile', mobileFormatted);
           formData.append('templatename', templateName);
+          formData.append('dvariables', `${name},${interviewLink}`);
           
-          // Try v1, v2 parameter format instead of dvariables
-          formData.append('v1', name);
-          formData.append('v2', interviewLink);
-          
-          console.log('   Debug - v1 (name):', name);
-          console.log('   Debug - v2 (link):', interviewLink);
+          console.log('   Debug - dvariables:', `${name},${interviewLink}`);
 
           const response = await axios.post(whatsappApiUrlByTemplate, formData, {
             headers: formData.getHeaders(),

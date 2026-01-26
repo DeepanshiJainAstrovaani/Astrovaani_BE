@@ -1026,8 +1026,11 @@ exports.notifyVendor = async (req, res) => {
           formData.append('templatename', templateName);
           formData.append('dvariables', `${name},${interviewLink}`);
           
-          console.log('📤 Sending reminder with dvariables:', `${name},${interviewLink}`);
-          console.log('📤 Sending reminder with dvariables:', `${name},${interviewLink}`);
+          console.log('📤 REMINDER - Sending to:', whatsappApiUrl);
+          console.log('   - apikey:', apiKey ? '***' + apiKey.slice(-4) : 'MISSING');
+          console.log('   - mobile:', mobileFormatted);
+          console.log('   - templatename:', templateName);
+          console.log('   - dvariables:', `${name},${interviewLink}`);
 
           const response = await axios.post(whatsappApiUrl, formData, {
             headers: formData.getHeaders(),
@@ -1035,7 +1038,15 @@ exports.notifyVendor = async (req, res) => {
           });
 
           whatsappResponse = response.data;
-          console.log('✅ WhatsApp API Response:', JSON.stringify(whatsappResponse, null, 2));
+          console.log('✅ REMINDER - WhatsApp API Response:', JSON.stringify(whatsappResponse, null, 2));
+          
+          // Check for error
+          if (whatsappResponse.status === 'error' || whatsappResponse.errormsg) {
+            console.error('❌ REMINDER - API Error:');
+            console.error('   Status:', whatsappResponse.status);
+            console.error('   Error:', whatsappResponse.errormsg);
+            console.error('   Code:', whatsappResponse.statuscode);
+          }
           
           if (whatsappResponse && (
             whatsappResponse.status === 'success' || 

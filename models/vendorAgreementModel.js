@@ -7,8 +7,8 @@ const vendorAgreementSchema = new mongoose.Schema({
         default: `<div class="container-fluid basebox white">
         <div class="col s12 m12 l12 xl12 white" id="agreementbox" style="height:auto;padding:40px 80px;">
             <img src="./agreement_files/logo_dark.png" width="180px" alt="Astrovaani logo">
-            <p>This Vendor Agreement ("Agreement") is entered into on <b>20 November 2025</b>, by and between <b>Astrovaani</b>, a company
-                    located at K2/10A Top Floor, Budh Vihar, New Delhi, 110086 and <b>Neeraj gunwant</b> ("Vendor"), who is registered with mobile number - <b>9368005814</b> and email id - <b>neerajgunwant19@gmail.com</b> , is providing service here
+            <p>This Vendor Agreement ("Agreement") is entered into on <b>{{AGREEMENT_DATE}}</b>, by and between <b>Astrovaani</b>, a company
+                    located at K2/10A Top Floor, Budh Vihar, New Delhi, 110086 and <b>{{VENDOR_NAME}}</b> ("Vendor"), who is registered with mobile number - <b>{{VENDOR_MOBILE}}</b> and email id - <b>{{VENDOR_EMAIL}}</b> , is providing service here
                     . The terms outlined below set forth the responsibilities, rights, and obligations of both
                     parties in the provision of astrology consultation services via Astrovaani's platform. Here, "Astrology" stands for both Astrology service, Tarot Reading and Numerology.
             </p>
@@ -62,11 +62,11 @@ const vendorAgreementSchema = new mongoose.Schema({
             </ul>
             <p></p>
             <p><b>4. Term and Termination</b><br>
-                This Agreement will commence on 20 November 2025 and will remain in effect until terminated by either party
+                This Agreement will commence on <b>{{AGREEMENT_DATE}}</b> and will remain in effect until terminated by either party
                 under the following conditions:<br>
             </p><ul>
                 <li>Termination with Notice: Either party may terminate this Agreement by providing 30 days' written
-                    notice to the other party. The notice must be delivered via neerajgunwant19@gmail.com.</li>
+                    notice to the other party. The notice must be delivered via {{VENDOR_EMAIL}}.</li>
                 <li>Immediate Termination: Astrovaani reserves the right to terminate this Agreement immediately under
                     the following circumstances:
                     <ul class="inul">
@@ -124,9 +124,9 @@ const vendorAgreementSchema = new mongoose.Schema({
             <br><br>
             <div class="signbox"><br>
 
-                <span class="vendor" style="line-height:15px;font-size:18px;">Neeraj gunwant</span>&nbsp;
-                <span class="vendor" style="line-height:15px;font-size:16px;">(Astrologer)</span><br>
-                <span class="date" style="margin-top:1vh;line-height:25px;">20 November 2025</span>
+                <span class="vendor" style="line-height:15px;font-size:18px;">{{VENDOR_NAME}}</span>&nbsp;
+                <span class="vendor" style="line-height:15px;font-size:16px;">({{VENDOR_CATEGORY}})</span><br>
+                <span class="date" style="margin-top:1vh;line-height:25px;">{{AGREEMENT_DATE}}</span>
             </div>
 
         </div>

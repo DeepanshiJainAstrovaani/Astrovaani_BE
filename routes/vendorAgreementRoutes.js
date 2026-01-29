@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const VendorAgreement = require('../models/vendorAgreementModel');
+const Vendor = require('../models/vendorModel');
 const adminAuth = require('../middleware/adminAuth');
 
-// GET: Fetch vendor agreement content
+// GET: Fetch vendor agreement content (template)
 router.get('/vendor-agreement', async (req, res) => {
     try {
         let agreement = await VendorAgreement.findOne();
@@ -24,6 +25,67 @@ router.get('/vendor-agreement', async (req, res) => {
         });
     } catch (error) {
         console.error('Error fetching vendor agreement:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch vendor agreement',
+            error: error.message
+        });
+    }
+});
+
+// GET: Fetch vendor agreement with dynamic vendor details
+router.get('/vendor-agreement/:vendorId', async (req, res) => {
+    try {
+        const { vendorId } = req.params;
+        
+        // Fetch the agreement template
+        let agreement = await VendorAgreement.findOne();
+        
+        if (!agreement) {
+            agreement = new VendorAgreement({});
+            await agreement.save();
+        }
+        
+        // Fetch vendor details
+        const vendor = await Vendor.findById(vendorId);
+        
+        if (!vendor) {
+            return res.status(404).json({
+                success: false,
+                message: 'Vendor not found'
+            });
+        }
+        
+        // Get current date in format "DD Month YYYY"
+        const agreementDate = new Date().toLocaleDateString('en-GB', { 
+            day: 'numeric', 
+            month: 'long', 
+            year: 'numeric' 
+        });
+        
+        // Replace placeholders with actual vendor data
+        let personalizedContent = agreement.content
+            .replace(/{{VENDOR_NAME}}/g, vendor.name || 'Vendor Name')
+            .replace(/{{VENDOR_EMAIL}}/g, vendor.email || 'vendor@email.com')
+            .replace(/{{VENDOR_MOBILE}}/g, vendor.mobile || 'N/A')
+            .replace(/{{VENDOR_CATEGORY}}/g, vendor.category || 'Astrologer')
+            .replace(/{{AGREEMENT_DATE}}/g, agreementDate);
+        
+        res.json({
+            success: true,
+            data: {
+                content: personalizedContent,
+                vendorInfo: {
+                    name: vendor.name,
+                    email: vendor.email,
+                    mobile: vendor.mobile,
+                    category: vendor.category
+                },
+                agreementDate: agreementDate
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching personalized vendor agreement:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to fetch vendor agreement',

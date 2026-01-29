@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const VendorAgreement = require('../models/vendorAgreementModel');
-const { verifyAdminToken } = require('../middleware/auth');
+const adminAuth = require('../middleware/adminAuth');
 
 // GET: Fetch vendor agreement content
 router.get('/vendor-agreement', async (req, res) => {
@@ -33,7 +33,7 @@ router.get('/vendor-agreement', async (req, res) => {
 });
 
 // PUT: Update vendor agreement content (Admin only)
-router.put('/vendor-agreement', verifyAdminToken, async (req, res) => {
+router.put('/vendor-agreement', adminAuth, async (req, res) => {
     try {
         const { content } = req.body;
         

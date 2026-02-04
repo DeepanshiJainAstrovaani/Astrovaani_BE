@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const VendorAgreement = require('../models/vendorAgreementModel');
-const Vendor = require('../models/vendorModel');
+const Vendor = require('../models/schemas/vendorSchema');
 const adminAuth = require('../middleware/adminAuth');
 const htmlPdf = require('html-pdf-node');
 

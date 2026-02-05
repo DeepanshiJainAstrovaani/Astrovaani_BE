@@ -3,7 +3,7 @@ const router = express.Router();
 const VendorAgreement = require('../models/vendorAgreementModel');
 const Vendor = require('../models/schemas/vendorSchema');
 const adminAuth = require('../middleware/adminAuth');
-const htmlPdf = require('html-pdf-node');
+const PDFDocument = require('pdfkit');
 
 // GET: Fetch vendor agreement content (template)
 router.get('/vendor-agreement', async (req, res) => {
@@ -161,89 +161,19 @@ router.get('/agreement/:vendorId', async (req, res) => {
             .replace(/{{VENDOR_CATEGORY}}/g, vendor.category || 'Astrologer')
             .replace(/{{AGREEMENT_DATE}}/g, agreementDate);
         
-        // Create complete HTML document for PDF
-        const htmlContent = `
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset="UTF-8">
-                <title>Vendor Agreement - ${vendor.name}</title>
-                <style>
-                    body {
-                        font-family: Arial, sans-serif;
-                        line-height: 1.6;
-                        color: #333;
-                        margin: 0;
-                        padding: 20px;
-                    }
-                    .container-fluid {
-                        max-width: 800px;
-                        margin: 0 auto;
-                    }
-                    img {
-                        max-width: 180px;
-                        margin-bottom: 20px;
-                    }
-                    p {
-                        margin: 10px 0;
-                        text-align: justify;
-                    }
-                    b {
-                        font-weight: 600;
-                    }
-                    ul {
-                        margin: 10px 0;
-                        padding-left: 25px;
-                    }
-                    li {
-                        margin: 8px 0;
-                    }
-                    .inul {
-                        list-style-type: circle;
-                        padding-left: 25px;
-                    }
-                    .signbox {
-                        margin-top: 30px;
-                        padding: 20px;
-                        border: 1px solid #ddd;
-                        background: #f9f9f9;
-                    }
-                    .vendor {
-                        display: block;
-                        font-weight: 500;
-                    }
-                    .date {
-                        display: block;
-                        margin-top: 10px;
-                        color: #666;
-                    }
-                    @page {
-                        margin: 20mm;
-                    }
-                </style>
-            </head>
-            <body>
-                ${personalizedContent}
-            </body>
-            </html>
-        `;
-        
-        // PDF generation options
-        const options = { 
-            format: 'A4',
-            printBackground: true,
-            margin: {
-                top: '20mm',
-                right: '15mm',
-                bottom: '20mm',
-                left: '15mm'
-            }
+        // Strip HTML tags for plain text PDF
+        const stripHtml = (html) => {
+            return html
+                .replace(/<br\s*\/?>/gi, '\n')
+                .replace(/<\/p>/gi, '\n\n')
+                .replace(/<li>/gi, '• ')
+                .replace(/<\/li>/gi, '\n')
+                .replace(/<[^>]*>/g, '')
+                .replace(/&nbsp;/g, ' ')
+                .trim();
         };
-        
-        const file = { content: htmlContent };
-        
-        // Generate PDF
-        const pdfBuffer = await htmlPdf.generatePdf(file, options);
+
+        const textContent = stripHtml(personalizedContent);
         
         // Create safe filename from vendor name
         const safeVendorName = vendor.name.replace(/[^a-zA-Z0-9]/g, '_');
@@ -252,10 +182,110 @@ router.get('/agreement/:vendorId', async (req, res) => {
         // Set response headers for PDF download
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-        res.setHeader('Content-Length', pdfBuffer.length);
         
-        // Send PDF
-        res.send(pdfBuffer);
+        // Create PDF document
+        const doc = new PDFDocument({
+            size: 'A4',
+            margins: {
+                top: 50,
+                bottom: 50,
+                left: 50,
+                right: 50
+            }
+        });
+        
+        // Pipe PDF to response
+        doc.pipe(res);
+        
+        // Add logo (optional - uncomment if you have logo file)
+        // try {
+        //     doc.image('./assets/logo.png', 50, 50, { width: 150 });
+        //     doc.moveDown(3);
+        // } catch (e) {
+        //     // Logo not found, skip
+        // }
+        
+        // Add title
+        doc.fontSize(20).font('Helvetica-Bold').text('VENDOR AGREEMENT', {
+            align: 'center'
+        });
+        doc.moveDown(1);
+        
+        // Add vendor details
+        doc.fontSize(12).font('Helvetica-Bold').text(`Vendor: ${vendor.name}`, {
+            align: 'left'
+        });
+        doc.fontSize(10).font('Helvetica').text(`Email: ${vendor.email || 'N/A'}`);
+        doc.text(`Mobile: ${vendor.mobile || 'N/A'}`);
+        doc.text(`Category: ${vendor.category || 'Astrologer'}`);
+        doc.text(`Date: ${agreementDate}`);
+        doc.moveDown(1.5);
+        
+        // Add horizontal line
+        doc.strokeColor('#000000')
+           .lineWidth(1)
+           .moveTo(50, doc.y)
+           .lineTo(545, doc.y)
+           .stroke();
+        
+        doc.moveDown(1);
+        
+        // Add agreement content
+        const lines = textContent.split('\n');
+        doc.fontSize(11).font('Helvetica');
+        
+        lines.forEach(line => {
+            const trimmedLine = line.trim();
+            if (trimmedLine) {
+                // Check if line starts with bullet
+                if (trimmedLine.startsWith('•')) {
+                    doc.text(trimmedLine, {
+                        indent: 20,
+                        align: 'justify'
+                    });
+                } else if (trimmedLine.includes('VENDOR') || trimmedLine.includes('ASTROVAANI') || trimmedLine.includes('AGREEMENT')) {
+                    // Make section headers bold
+                    doc.font('Helvetica-Bold').text(trimmedLine, {
+                        align: 'justify'
+                    });
+                    doc.font('Helvetica');
+                } else {
+                    doc.text(trimmedLine, {
+                        align: 'justify'
+                    });
+                }
+            } else {
+                doc.moveDown(0.5);
+            }
+        });
+        
+        // Add signature section at the end
+        doc.moveDown(2);
+        doc.strokeColor('#000000')
+           .lineWidth(1)
+           .moveTo(50, doc.y)
+           .lineTo(545, doc.y)
+           .stroke();
+        
+        doc.moveDown(1);
+        doc.fontSize(10).font('Helvetica-Bold').text('SIGNATURES', { align: 'center' });
+        doc.moveDown(1);
+        
+        const midPoint = doc.page.width / 2;
+        doc.font('Helvetica');
+        
+        // Left side - Vendor signature
+        doc.text('Vendor:', 50, doc.y);
+        doc.text(`${vendor.name}`, 50, doc.y + 40);
+        doc.text(`Date: ${agreementDate}`, 50, doc.y + 20);
+        
+        // Right side - Company signature
+        doc.text('For Astrovaani:', midPoint, doc.y - 80);
+        doc.text('Authorized Signatory', midPoint, doc.y + 40);
+        doc.text(`Date: ${agreementDate}`, midPoint, doc.y + 20);
+        
+        // Finalize PDF
+        doc.end();
         
     } catch (error) {
         console.error('Error generating vendor agreement PDF:', error);

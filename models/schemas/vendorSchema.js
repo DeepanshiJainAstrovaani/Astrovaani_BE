@@ -162,7 +162,12 @@ const vendorSchema = new mongoose.Schema({
     enum: ['FREE', 'PAID'],
     default: 'PAID',
     trim: true
-  }
+  },
+  
+  // Push notification tokens
+  fcmToken: { type: String, trim: true },
+  fcmtoken: { type: String, trim: true },
+  expotoken: { type: String, trim: true }
 }, {
   timestamps: true,
   collection: 'community', // Use 'community' as collection name to match your MySQL table

@@ -3,7 +3,8 @@ const router = express.Router();
 const VendorAgreement = require('../models/vendorAgreementModel');
 const Vendor = require('../models/schemas/vendorSchema');
 const adminAuth = require('../middleware/adminAuth');
-const htmlPdf = require('html-pdf-node');
+// const htmlPdf = require('html-pdf-node'); // COMMENTED OUT - Module not available in deployment
+// PDF generation handled separately if needed
 
 // GET: Fetch vendor agreement content (template)
 router.get('/vendor-agreement', async (req, res) => {
@@ -239,16 +240,11 @@ router.get('/agreement/:vendorId', async (req, res) => {
         
         const file = { content: htmlContent };
         
-        // Generate PDF using html-pdf-node
-        const pdfBuffer = await htmlPdf.generatePdf(file, options);
-        
-        // Set response headers for PDF download
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-        res.setHeader('Content-Length', pdfBuffer.length);
-        
-        // Send PDF
-        res.send(pdfBuffer);
+        // Return HTML directly (PDF generation not available in this environment)
+        // For PDF download, use browser print-to-PDF feature
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename.replace('.pdf', '.html')}"`);
+        res.send(htmlContent);
         
     } catch (error) {
         console.error('Error generating vendor agreement PDF:', error);

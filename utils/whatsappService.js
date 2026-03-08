@@ -3,7 +3,7 @@ const twilio = require('twilio');
 
 /**
  * Multi-provider WhatsApp Service
- * Supports: Twilio (primary), IconicSolution (fallback)
+ * Supports: Meta WhatsApp Cloud API (primary), IconicSolution (fallback)
  */
 
 // Helper: normalize mobile to E.164 format (+919876543210)
@@ -20,6 +20,83 @@ const normalizeMobileNoPrefix = (raw) => {
   const e164 = normalizeMobileE164(raw);
   return e164 ? e164.replace('+', '') : e164;
 };
+
+/**
+ * Send WhatsApp via Meta WhatsApp Cloud API
+ */
+async function sendViaMetaWhatsApp(mobile, otp) {
+  const phoneNumberId = process.env.META_WHATSAPP_PHONE_NUMBER_ID;
+  const accessToken = process.env.META_WHATSAPP_ACCESS_TOKEN;
+  
+  if (!phoneNumberId || !accessToken) {
+    throw new Error('Meta WhatsApp credentials not configured');
+  }
+  
+  const mobileFormatted = normalizeMobileNoPrefix(mobile);
+  const url = `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`;
+  
+  const data = {
+    messaging_product: "whatsapp",
+    to: mobileFormatted,
+    type: "template",
+    template: {
+      name: "sendotp",
+      language: {
+        code: "en"
+      },
+      components: [
+        {
+          type: "body",
+          parameters: [
+            {
+              type: "text",
+              text: otp
+            }
+          ]
+        },
+        {
+          type: "button",
+          sub_type: "url",
+          index: "0",
+          parameters: [
+            {
+              type: "text",
+              text: otp
+            }
+          ]
+        }
+      ]
+    }
+  };
+  
+  console.log('📱 Sending via Meta WhatsApp Cloud API');
+  console.log('   Phone Number ID:', phoneNumberId);
+  console.log('   To:', mobileFormatted);
+  console.log('   OTP:', otp);
+  
+  try {
+    const response = await axios.post(url, data, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      timeout: 15000
+    });
+    
+    console.log('✅ Meta WhatsApp response:', response.data);
+    
+    return {
+      success: true,
+      provider: 'meta_whatsapp',
+      messageId: response.data.messages?.[0]?.id,
+      status: 'sent',
+      raw: response.data
+    };
+  } catch (error) {
+    console.error('❌ Meta WhatsApp error:', error.response?.data || error.message);
+    throw new Error(error.response?.data?.message || error.message || 'Meta WhatsApp API failed');
+  }
+}
 
 /**
  * Send WhatsApp via Twilio
@@ -119,38 +196,65 @@ async function sendViaIconicSolution(mobile, message, templateName = 'sendotp') 
 
 /**
  * Send WhatsApp with automatic fallback
- * Tries providers in order: Twilio → IconicSolution
+ * TESTING META WHATSAPP CLOUD API ONLY (IconicSolution fallback commented out)
  * 
  * @param {string} mobile - Mobile number
- * @param {string} message - Message to send
+ * @param {string|null} message - Message to send (not used for Meta API, which uses templates)
  * @param {Object} options - Optional settings
- * @param {boolean} options.enableFallback - Enable fallback to other providers (default: true)
+ * @param {string} options.otp - OTP code to send (for Meta WhatsApp)
  * @param {string} options.templateName - Template name for IconicSolution (default: 'sendotp')
+ * @param {string} options.provider - Force specific provider: 'meta' or 'iconic'
  */
 async function sendWhatsApp(mobile, message, options = {}) {
-  // Only use IconicSolution for WhatsApp sending
+  const forceProvider = options.provider?.toLowerCase();
+  
+  // Try Meta WhatsApp (PRIMARY - Testing Only)
   try {
-    const templateName = typeof options.templateName === 'string' ? options.templateName : 'sendotp';
-    console.log(`\n🔄 [IconicOnly] Attempting WhatsApp via IconicSolution...`);
-    const result = await sendViaIconicSolution(mobile, message, templateName);
-    console.log(`✅ WhatsApp sent successfully via IconicSolution!`);
+    const otp = options.otp || message;
+    console.log(`\n🔄 Attempting WhatsApp via Meta Cloud API...`);
+    const result = await sendViaMetaWhatsApp(mobile, otp);
+    console.log(`✅ WhatsApp sent successfully via Meta WhatsApp!`);
     return {
       success: true,
-      provider: 'iconicsolution',
+      provider: 'meta_whatsapp',
       response: result
     };
   } catch (error) {
-    console.error(`❌ IconicSolution failed:`, error.message);
+    console.error(`❌ Meta WhatsApp failed:`, error.message);
     return {
       success: false,
+      provider: 'meta_whatsapp',
       error: error.message,
       details: error.response?.data || error
     };
   }
+
+  // ========== COMMENTED OUT ICONIC FALLBACK FOR TESTING ==========
+  // try {
+  //   const templateName = typeof options.templateName === 'string' ? options.templateName : 'sendotp';
+  //   console.log(`🔄 Attempting WhatsApp via IconicSolution...`);
+  //   const result = await sendViaIconicSolution(mobile, message, templateName);
+  //   console.log(`✅ WhatsApp sent successfully via IconicSolution!`);
+  //   return {
+  //     success: true,
+  //     provider: 'iconicsolution',
+  //     response: result
+  //   };
+  // } catch (error) {
+  //   console.error(`❌ All WhatsApp providers failed`);
+  //   console.error(`   Meta: attempted`);
+  //   console.error(`   IconicSolution:`, error.message);
+  //   return {
+  //     success: false,
+  //     error: error.message,
+  //     details: error.response?.data || error
+  //   };
+  // }
 }
 
 module.exports = {
   sendWhatsApp,
+  sendViaMetaWhatsApp,
   sendViaTwilio,
   sendViaIconicSolution,
   normalizeMobileE164,

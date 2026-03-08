@@ -311,7 +311,7 @@ exports.notifyVendorSlots = async (req, res) => {
     // Save vendor with new interview code and any proposed slots
     await vendor.save();
 
-    // prepare message and send via IconicSolution (same as PHP)
+    // prepare message and send via Meta WhatsApp Cloud API
     const baseUrl = 'https://join.astrovaani.com'; // Production URL
     // Use new React interview page instead of PHP
     const link = `${baseUrl}/interview?code=${interviewCode}`;
@@ -319,25 +319,6 @@ exports.notifyVendorSlots = async (req, res) => {
     const mobile = (vendor.phone || vendor.whatsapp || '').replace(/\s+/g, '');
     if (!mobile) return res.status(400).json({ message: 'Vendor mobile not available' });
 
-    // Build a message that includes slots and optional meeting link
-    let slotText = '';
-    if (providedSlots.length > 0) {
-      slotText = '\n\nProposed slots:\n';
-      providedSlots.forEach((s, idx) => {
-        const dt = s.scheduledAt ? new Date(s.scheduledAt) : null;
-        const dtStr = dt ? dt.toLocaleString('en-GB', { timeZone: 'UTC' }) : 'TBD';
-        const dur = s.duration ? `${s.duration} mins` : 'TBD';
-        slotText += `${idx + 1}. ${dtStr} (${dur})\n`;
-      });
-    }
-
-    const meetText = providedMeetLink ? `\nMeeting link: ${providedMeetLink}\n` : '';
-
-    const msg = `*Dear ${name}*,\n\nWe are pleased to inform you that your joining application has been approved. As the next step, your interview has been scheduled, and we invite you to book a suitable time slot.${slotText}\nPlease click on the link below to select an available slot for your interview:\n\n*${link}*\n\n${meetText}Should you have any questions or need further assistance, feel free to reach out to us at support@astrovaani.com\n\n*Note:* If you're unable to click on the link, please save this number in your contacts, and the link will become clickable.`;
-
-    // IconicSolution API key (same as PHP uses for vendor notifications)
-    const iconicKey = process.env.ICONIC_API_KEY || '0bf9865d140d4676b28be02813fbf1c8';
-    
     // Normalize mobile to include country code
     const normalizeMobile = (raw) => {
       if (!raw) return raw;
@@ -352,110 +333,90 @@ exports.notifyVendorSlots = async (req, res) => {
     let whatsappResponse = null;
     let finalStatus = 'failed';
     
-    // Send WhatsApp notification (DUMMY MODE for testing)
-    console.log('📱 Sending WhatsApp notification');
+    // Send WhatsApp notification via Meta WhatsApp Cloud API
+    console.log('📱 Sending WhatsApp notification via Meta API');
     console.log('   Mobile:', mobileFormatted);
-    console.log('   Message length:', msg.length);
+    console.log('   Interview Link:', link);
     console.log('   Interview Code:', interviewCode);
     
-    // HARDCODED: Set to true for testing, false once template is approved
-    const isDummyMode = false; // ✅ Changed to false - template approved and ready for production!
-    
-    if (isDummyMode) {
-      // DUMMY MODE: Simulate successful WhatsApp send
-      console.log('🧪 DUMMY MODE ENABLED - Simulating successful WhatsApp send');
-      console.log('📝 Message preview:\n', msg.substring(0, 200) + '...');
+    try {
+      console.log('🔄 Sending WhatsApp via Meta WhatsApp Cloud API');
+      console.log('   Vendor Name:', name);
+      console.log('   Interview Link:', link);
       
-      whatsappResponse = {
-        status: 'success',
-        statuscode: 200,
-        msg: 'Message sent successfully (DUMMY)',
-        messageId: `dummy_msg_${Date.now()}`,
-        mobile: mobileFormatted,
-        timestamp: new Date().toISOString()
+      const phoneNumberId = process.env.META_WHATSAPP_PHONE_NUMBER_ID;
+      const accessToken = process.env.META_WHATSAPP_ACCESS_TOKEN;
+      
+      if (!phoneNumberId || !accessToken) {
+        throw new Error('Meta WhatsApp credentials not configured');
+      }
+      
+      const metaUrl = `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`;
+      const payload = {
+        messaging_product: "whatsapp",
+        to: mobileFormatted,
+        type: "template",
+        template: {
+          name: "vendor_interview_notification",
+          language: {
+            code: "en"
+          },
+          components: [
+            {
+              type: "body",
+              parameters: [
+                {
+                  type: "text",
+                  text: name
+                },
+                {
+                  type: "text",
+                  text: link
+                }
+              ]
+            },
+            {
+              type: "button",
+              sub_type: "url",
+              index: "0",
+              parameters: [
+                {
+                  type: "text",
+                  text: interviewCode
+                }
+              ]
+            }
+          ]
+        }
       };
       
-      finalStatus = 'sent';
-      console.log(`✅ WhatsApp sent successfully (DUMMY MODE)!`);
-    } else {
-      // REAL MODE: Use template-based API (direct link template)
-      const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
-      const apiKey = process.env.ICONIC_API_KEY;
-      // Use new template with direct link
-      const templateName = 'vendor_slot_selection_link';
+      console.log('📤 Sending to Meta API:', metaUrl);
+      console.log('   - Phone Number ID:', phoneNumberId);
+      console.log('   - To:', mobileFormatted);
+      console.log('   - Vendor Name:', name);
+      console.log('   - Interview Link:', link);
       
-      if (!apiKey) {
-        console.error('❌ ICONIC_API_KEY not found in .env');
-        whatsappResponse = { error: 'API key not configured' };
+      const sendRes = await axios.post(metaUrl, payload, { 
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 30000
+      });
+      
+      whatsappResponse = sendRes.data;
+      console.log(`✅ Meta WhatsApp API response:`, JSON.stringify(whatsappResponse, null, 2));
+      
+      if (whatsappResponse && whatsappResponse.messages && whatsappResponse.messages.length > 0) {
+        finalStatus = 'sent';
+        console.log(`✅ WhatsApp sent successfully via Meta API!`);
       } else {
-        try {
-          console.log('🔄 Sending WhatsApp via template (with direct link):', templateName);
-          console.log('   Mobile:', mobileFormatted);
-          console.log('   Vendor Name:', name);
-          console.log('   Interview Link:', link);
-          
-          const FormData = require('form-data');
-          const formData = new FormData();
-          
-          // Explicitly use /bytemplate endpoint
-          const whatsappApiUrl = 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
-          
-          formData.append('apikey', apiKey);
-          formData.append('mobile', mobileFormatted);
-          formData.append('templatename', templateName);
-          formData.append('dvariables', `${name},${link}`);
-          
-          // Debug: Log all form data
-          console.log('📤 Sending to API:', whatsappApiUrl);
-          console.log('📋 Form Data being sent:');
-          console.log('   - apikey:', apiKey ? '***' + apiKey.slice(-4) : 'MISSING');
-          console.log('   - mobile:', mobileFormatted);
-          console.log('   - templatename:', templateName);
-          console.log('   - dvariables:', `${name},${link}`);
-          console.log('   - dvariables length:', `${name},${link}`.length);
-          console.log('   - dvariables has comma:', `${name},${link}`.includes(','));
-          
-          const sendRes = await axios.post(whatsappApiUrl, formData, { 
-            headers: formData.getHeaders(),
-            timeout: 30000
-          });
-          
-          whatsappResponse = sendRes.data;
-          console.log(`✅ WhatsApp API response:`, JSON.stringify(whatsappResponse, null, 2));
-          
-          // Debug: Check error details
-          if (whatsappResponse.status === 'error' || whatsappResponse.errormsg) {
-            console.error('❌ API Error Details:');
-            console.error('   Status:', whatsappResponse.status);
-            console.error('   Error Message:', whatsappResponse.errormsg);
-            console.error('   Status Code:', whatsappResponse.statuscode);
-            console.error('   Full Response:', JSON.stringify(whatsappResponse, null, 2));
-          }
-          
-          // Check for success (handle different response formats)
-          if (whatsappResponse && (
-            whatsappResponse.status === 'success' || 
-            whatsappResponse.success === true || 
-            whatsappResponse.statuscode === 200 || 
-            whatsappResponse.statuscode === 2000 ||
-            whatsappResponse.statusCode === 200
-          )) {
-            finalStatus = 'sent';
-            console.log(`✅ WhatsApp sent successfully!`);
-          } else {
-            console.warn(`⚠️ WhatsApp API returned non-success status:`, whatsappResponse);
-            // Still log as sent if we got a response without error
-            if (whatsappResponse && !whatsappResponse.error && !whatsappResponse.message?.includes('no active')) {
-              finalStatus = 'sent';
-              console.log(`⚠️ Assuming success based on no error in response`);
-            }
-          }
-        } catch (waErr) {
-          const errDetail = waErr?.response?.data || { message: waErr.message, code: waErr.code };
-          console.error(`❌ WhatsApp send error:`, JSON.stringify(errDetail, null, 2));
-          whatsappResponse = errDetail;
-        }
+        console.warn(`⚠️ Meta API returned unexpected response:`, whatsappResponse);
       }
+    } catch (waErr) {
+      const errDetail = waErr?.response?.data || { message: waErr.message, code: waErr.code };
+      console.error(`❌ WhatsApp send error:`, JSON.stringify(errDetail, null, 2));
+      whatsappResponse = errDetail;
     }
 
     // Log notification
@@ -463,7 +424,7 @@ exports.notifyVendorSlots = async (req, res) => {
       await MessageNotification.create({ 
         vendorId: vendor._id, 
         type: 'whatsapp', 
-        payload: { msg, mobile: mobileFormatted, slots: providedSlots, meetLink: providedMeetLink }, 
+        payload: { mobile: mobileFormatted, link, interviewCode }, 
         status: 'sent', 
         providerResponse: whatsappResponse
       });
@@ -471,7 +432,7 @@ exports.notifyVendorSlots = async (req, res) => {
       await MessageNotification.create({ 
         vendorId: vendor._id, 
         type: 'whatsapp', 
-        payload: { msg, mobile: mobileFormatted, slots: providedSlots, meetLink: providedMeetLink }, 
+        payload: { mobile: mobileFormatted, link, interviewCode }, 
         status: 'failed', 
         error: whatsappResponse 
       });
@@ -994,103 +955,116 @@ exports.notifyVendor = async (req, res) => {
       phone: mobileFormatted
     });
 
-    // Send WhatsApp message via template-based API
+    // Send WhatsApp message via Meta WhatsApp Cloud API
     let whatsappSent = false;
     let whatsappResponse = null;
-    const isDummyMode = false;
 
-    if (isDummyMode) {
-      console.log('🧪 DUMMY MODE - Simulating WhatsApp send');
-      whatsappSent = true;
-    } else {
-      const whatsappApiUrl = 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
-      const apiKey = process.env.ICONIC_API_KEY;
+    try {
+      console.log('🔄 Sending WhatsApp reminder via Meta WhatsApp Cloud API');
+      console.log('   Mobile:', mobileFormatted);
+      console.log('   Vendor Name:', name);
+      console.log('   Interview Code:', vendor.interviewcode);
       
-      // Use the same working template as notification
-      const templateName = 'vendor_slot_selection_link';
-      const interviewLink = `https://join.astrovaani.com/interview?code=${vendor.interviewcode}`;
-
-      if (!apiKey) {
-        console.error('❌ ICONIC_API_KEY not found in .env');
-      } else {
-        try {
-          console.log('🔄 Sending WhatsApp reminder via template:', templateName);
-          console.log('   Mobile:', mobileFormatted);
-          console.log('   Vendor Name:', name);
-          console.log('   Interview Link:', interviewLink);
-          
-          const FormData = require('form-data');
-          const formData = new FormData();
-          formData.append('apikey', apiKey);
-          formData.append('mobile', mobileFormatted);
-          formData.append('templatename', templateName);
-          formData.append('dvariables', `${name},${interviewLink}`);
-          
-          console.log('📤 REMINDER - Sending to:', whatsappApiUrl);
-          console.log('   - apikey:', apiKey ? '***' + apiKey.slice(-4) : 'MISSING');
-          console.log('   - mobile:', mobileFormatted);
-          console.log('   - templatename:', templateName);
-          console.log('   - dvariables:', `${name},${interviewLink}`);
-
-          const response = await axios.post(whatsappApiUrl, formData, {
-            headers: formData.getHeaders(),
-            timeout: 30000
-          });
-
-          whatsappResponse = response.data;
-          console.log('✅ REMINDER - WhatsApp API Response:', JSON.stringify(whatsappResponse, null, 2));
-          
-          // Check for error
-          if (whatsappResponse.status === 'error' || whatsappResponse.errormsg) {
-            console.error('❌ REMINDER - API Error:');
-            console.error('   Status:', whatsappResponse.status);
-            console.error('   Error:', whatsappResponse.errormsg);
-            console.error('   Code:', whatsappResponse.statuscode);
-          }
-          
-          if (whatsappResponse && (
-            whatsappResponse.status === 'success' || 
-            whatsappResponse.success === true ||
-            whatsappResponse.statuscode === 200 ||
-            whatsappResponse.statuscode === 2000 ||
-            whatsappResponse.statusCode === 200
-          )) {
-            whatsappSent = true;
-            console.log('✅ WhatsApp reminder sent successfully!');
-            
-            // Log notification
-            await Notification.create({ 
-              vendorId: vendor._id, 
-              type: 'whatsapp', 
-              payload: { mobile: mobileFormatted, templateName, variables: templateVars }, 
-              status: 'sent', 
-              providerResponse: whatsappResponse
-            });
-          } else {
-            console.warn('⚠️ WhatsApp API returned non-success status:', whatsappResponse);
-            await Notification.create({ 
-              vendorId: vendor._id, 
-              type: 'whatsapp', 
-              payload: { mobile: mobileFormatted, templateName, variables: templateVars }, 
-              status: 'failed', 
-              error: whatsappResponse
-            });
-          }
-        } catch (waErr) {
-          const errDetail = waErr?.response?.data || { message: waErr.message, code: waErr.code };
-          console.error('❌ WhatsApp send error:', JSON.stringify(errDetail, null, 2));
-          whatsappResponse = errDetail;
-          
-          // Log failed notification
-          await Notification.create({ 
-            vendorId: vendor._id, 
-            type: 'whatsapp', 
-            payload: { mobile: mobileFormatted, templateName }, 
-            status: 'failed', 
-            error: errDetail
-          });
-        }
+      const phoneNumberId = process.env.META_WHATSAPP_PHONE_NUMBER_ID;
+      const accessToken = process.env.META_WHATSAPP_ACCESS_TOKEN;
+      
+      if (!phoneNumberId || !accessToken) {
+        throw new Error('Meta WhatsApp credentials not configured');
       }
+      
+      const metaUrl = `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`;
+      const interviewLink = `https://join.astrovaani.com/interview?code=${vendor.interviewcode}`;
+      
+      const payload = {
+        messaging_product: "whatsapp",
+        to: mobileFormatted,
+        type: "template",
+        template: {
+          name: "vendor_interview_reminder",
+          language: {
+            code: "en"
+          },
+          components: [
+            {
+              type: "body",
+              parameters: [
+                {
+                  type: "text",
+                  text: name
+                },
+                {
+                  type: "text",
+                  text: interviewLink
+                }
+              ]
+            },
+            {
+              type: "button",
+              sub_type: "url",
+              index: "0",
+              parameters: [
+                {
+                  type: "text",
+                  text: vendor.interviewcode
+                }
+              ]
+            }
+          ]
+        }
+      };
+      
+      console.log('📤 REMINDER - Sending to Meta API:', metaUrl);
+      console.log('   - Phone Number ID:', phoneNumberId);
+      console.log('   - To:', mobileFormatted);
+      console.log('   - Vendor Name:', name);
+      console.log('   - Interview Link:', interviewLink);
+
+      const response = await axios.post(metaUrl, payload, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 30000
+      });
+
+      whatsappResponse = response.data;
+      console.log('✅ REMINDER - Meta WhatsApp API Response:', JSON.stringify(whatsappResponse, null, 2));
+      
+      if (whatsappResponse && whatsappResponse.messages && whatsappResponse.messages.length > 0) {
+        whatsappSent = true;
+        console.log('✅ Reminder sent successfully via Meta WhatsApp!');
+        
+        // Log notification
+        await MessageNotification.create({ 
+          vendorId: vendor._id, 
+          type: 'whatsapp', 
+          payload: { mobile: mobileFormatted, interviewCode: vendor.interviewcode }, 
+          status: 'sent', 
+          providerResponse: whatsappResponse
+        });
+      } else {
+        console.warn('⚠️ Meta API returned unexpected response:', whatsappResponse);
+        await MessageNotification.create({ 
+          vendorId: vendor._id, 
+          type: 'whatsapp', 
+          payload: { mobile: mobileFormatted, interviewCode: vendor.interviewcode }, 
+          status: 'failed', 
+          error: whatsappResponse
+        });
+      }
+    } catch (waErr) {
+      const errDetail = waErr?.response?.data || { message: waErr.message, code: waErr.code };
+      console.error('❌ WhatsApp send error:', JSON.stringify(errDetail, null, 2));
+      whatsappResponse = errDetail;
+      
+      // Log failed notification
+      await MessageNotification.create({ 
+        vendorId: vendor._id, 
+        type: 'whatsapp', 
+        payload: { mobile: mobileFormatted, interviewCode: vendor.interviewcode }, 
+        status: 'failed', 
+        error: errDetail
+      });
     }
 
     res.json({

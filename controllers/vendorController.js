@@ -352,12 +352,13 @@ exports.notifyVendorSlots = async (req, res) => {
       }
       
       const metaUrl = `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`;
+      
       const payload = {
         messaging_product: "whatsapp",
         to: mobileFormatted,
         type: "template",
         template: {
-          name: "vendor_interview_notification",
+          name: "interviewscheduling",
           language: {
             code: "en"
           },
@@ -368,10 +369,6 @@ exports.notifyVendorSlots = async (req, res) => {
                 {
                   type: "text",
                   text: name
-                },
-                {
-                  type: "text",
-                  text: link
                 }
               ]
             },
@@ -382,7 +379,7 @@ exports.notifyVendorSlots = async (req, res) => {
               parameters: [
                 {
                   type: "text",
-                  text: interviewCode
+                  text: link
                 }
               ]
             }
@@ -980,7 +977,7 @@ exports.notifyVendor = async (req, res) => {
         to: mobileFormatted,
         type: "template",
         template: {
-          name: "vendor_interview_reminder",
+          name: "interviewscheduling",
           language: {
             code: "en"
           },
@@ -991,10 +988,6 @@ exports.notifyVendor = async (req, res) => {
                 {
                   type: "text",
                   text: name
-                },
-                {
-                  type: "text",
-                  text: interviewLink
                 }
               ]
             },
@@ -1005,7 +998,7 @@ exports.notifyVendor = async (req, res) => {
               parameters: [
                 {
                   type: "text",
-                  text: vendor.interviewcode
+                  text: interviewLink
                 }
               ]
             }

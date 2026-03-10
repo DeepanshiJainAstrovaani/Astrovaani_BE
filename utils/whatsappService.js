@@ -196,7 +196,7 @@ async function sendViaIconicSolution(mobile, message, templateName = 'sendotp') 
 
 /**
  * Send WhatsApp with automatic fallback
- * TESTING META WHATSAPP CLOUD API ONLY (IconicSolution fallback commented out)
+ * Tries providers in order: Meta WhatsApp Cloud API → IconicSolution
  * 
  * @param {string} mobile - Mobile number
  * @param {string|null} message - Message to send (not used for Meta API, which uses templates)
@@ -208,48 +208,56 @@ async function sendViaIconicSolution(mobile, message, templateName = 'sendotp') 
 async function sendWhatsApp(mobile, message, options = {}) {
   const forceProvider = options.provider?.toLowerCase();
   
-  // Try Meta WhatsApp (PRIMARY - Testing Only)
+  // Try Meta WhatsApp first (if not explicitly avoiding it)
+  if (!forceProvider || forceProvider === 'meta') {
+    try {
+      const otp = options.otp || message;
+      console.log(`\n🔄 Attempting WhatsApp via Meta Cloud API...`);
+      const result = await sendViaMetaWhatsApp(mobile, otp);
+      console.log(`✅ WhatsApp sent successfully via Meta WhatsApp!`);
+      return {
+        success: true,
+        provider: 'meta_whatsapp',
+        response: result
+      };
+    } catch (error) {
+      console.error(`⚠️  Meta WhatsApp failed:`, error.message);
+      
+      // If Meta is forced, don't fallback
+      if (forceProvider === 'meta') {
+        return {
+          success: false,
+          provider: 'meta_whatsapp',
+          error: error.message,
+          details: error.response?.data || error
+        };
+      }
+      // Otherwise continue to fallback
+      console.log(`🔄 Attempting fallback to IconicSolution...`);
+    }
+  }
+  
+  // Fallback to IconicSolution
   try {
-    const otp = options.otp || message;
-    console.log(`\n🔄 Attempting WhatsApp via Meta Cloud API...`);
-    const result = await sendViaMetaWhatsApp(mobile, otp);
-    console.log(`✅ WhatsApp sent successfully via Meta WhatsApp!`);
+    const templateName = typeof options.templateName === 'string' ? options.templateName : 'sendotp';
+    console.log(`🔄 Attempting WhatsApp via IconicSolution...`);
+    const result = await sendViaIconicSolution(mobile, message, templateName);
+    console.log(`✅ WhatsApp sent successfully via IconicSolution!`);
     return {
       success: true,
-      provider: 'meta_whatsapp',
+      provider: 'iconicsolution',
       response: result
     };
   } catch (error) {
-    console.error(`❌ Meta WhatsApp failed:`, error.message);
+    console.error(`❌ All WhatsApp providers failed`);
+    console.error(`   Meta: attempted`);
+    console.error(`   IconicSolution:`, error.message);
     return {
       success: false,
-      provider: 'meta_whatsapp',
       error: error.message,
       details: error.response?.data || error
     };
   }
-
-  // ========== COMMENTED OUT ICONIC FALLBACK FOR TESTING ==========
-  // try {
-  //   const templateName = typeof options.templateName === 'string' ? options.templateName : 'sendotp';
-  //   console.log(`🔄 Attempting WhatsApp via IconicSolution...`);
-  //   const result = await sendViaIconicSolution(mobile, message, templateName);
-  //   console.log(`✅ WhatsApp sent successfully via IconicSolution!`);
-  //   return {
-  //     success: true,
-  //     provider: 'iconicsolution',
-  //     response: result
-  //   };
-  // } catch (error) {
-  //   console.error(`❌ All WhatsApp providers failed`);
-  //   console.error(`   Meta: attempted`);
-  //   console.error(`   IconicSolution:`, error.message);
-  //   return {
-  //     success: false,
-  //     error: error.message,
-  //     details: error.response?.data || error
-  //   };
-  // }
 }
 
 module.exports = {

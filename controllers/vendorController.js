@@ -316,7 +316,10 @@ exports.notifyVendorSlots = async (req, res) => {
     // Use new React interview page instead of PHP
     const link = `${baseUrl}/interview?code=${interviewCode}`;
     const name = (vendor.name || '').trim();
-    const mobile = (vendor.phone || vendor.whatsapp || '').replace(/\s+/g, '');
+    
+    // Allow test phone number override from request body
+    const testPhoneOverride = (req.body && req.body.testPhone) ? String(req.body.testPhone).replace(/\s+/g, '') : null;
+    const mobile = testPhoneOverride || (vendor.phone || vendor.whatsapp || '').replace(/\s+/g, '');
     if (!mobile) return res.status(400).json({ message: 'Vendor mobile not available' });
 
     // Normalize mobile to include country code
@@ -379,7 +382,7 @@ exports.notifyVendorSlots = async (req, res) => {
               parameters: [
                 {
                   type: "text",
-                  text: link
+                  text: interviewCode
                 }
               ]
             }
@@ -392,6 +395,7 @@ exports.notifyVendorSlots = async (req, res) => {
       console.log('   - To:', mobileFormatted);
       console.log('   - Vendor Name:', name);
       console.log('   - Interview Link:', link);
+      console.log('📋 Full Payload:', JSON.stringify(payload, null, 2));
       
       const sendRes = await axios.post(metaUrl, payload, { 
         headers: {

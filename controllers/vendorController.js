@@ -1002,7 +1002,7 @@ exports.notifyVendor = async (req, res) => {
               parameters: [
                 {
                   type: "text",
-                  text: interviewLink
+                  text: interviewcode
                 }
               ]
             }

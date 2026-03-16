@@ -9,7 +9,7 @@ const Vendor = require('./models/schemas/vendorSchema');
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/astrovaani';
 const CLOUDINARY_CLOUD_NAME = 'df8sx5hv4'; // From your screenshot
-const CLOUDINARY_BASE_URL = `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/raw/upload/vendor_agreements/`;
+const CLOUDINARY_BASE_URL = `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/upload/vendor_agreements/`;
 
 async function fixAgreementUrls() {
   try {

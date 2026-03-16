@@ -829,7 +829,7 @@ exports.sendMeetingLink = async (req, res) => {
         to: mobileFormatted,
         type: "template",
         template: {
-          name: "vendor_meeting_link",
+          name: "vendor_meeting_link_simple",
           language: {
             code: "en"
           },

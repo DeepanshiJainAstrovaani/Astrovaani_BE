@@ -6,9 +6,10 @@ const cloudinary = require('../config/cloudinaryConfig');
 const agreementStorage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
-    folder: 'vendor_agreements', // Folder name in Cloudinary
+    folder: 'vendor_agreements',
     allowed_formats: ['pdf', 'doc', 'docx'],
-    resource_type: 'auto' // Allow all file types
+    resource_type: 'raw', // Use 'raw' for PDFs and documents so they're stored properly
+    api_key: process.env.CLOUDINARY_API_KEY,
   }
 });
 

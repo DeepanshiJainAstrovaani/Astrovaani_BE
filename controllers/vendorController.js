@@ -2116,17 +2116,40 @@ exports.uploadAgreement = async (req, res) => {
       });
     }
 
-    console.log('📤 Agreement uploaded to Cloudinary:', req.file.path);
+    console.log('📤 Agreement uploaded - File object:', JSON.stringify({
+      path: req.file.path,
+      filename: req.file.filename,
+      public_id: req.file.public_id,
+      resource_type: req.file.resource_type,
+      size: req.file.size,
+      mimetype: req.file.mimetype
+    }, null, 2));
+
+    // Cloudinary returns the full URL via req.file.path
+    // Multer-storage-cloudinary automatically provides the correct URL
+    let agreementUrl = req.file.path;
+
+    // Validate the URL is from Cloudinary
+    if (!agreementUrl || !agreementUrl.includes('cloudinary.com')) {
+      console.error('❌ Invalid Cloudinary URL:', agreementUrl);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to get valid Cloudinary URL',
+        receivedUrl: agreementUrl
+      });
+    }
+
+    console.log('✅ Agreement uploaded successfully to:', agreementUrl);
 
     // Return the Cloudinary URL
     res.json({
       success: true,
       message: 'Agreement uploaded successfully',
-      agreementUrl: req.file.path
+      agreementUrl: agreementUrl
     });
 
   } catch (error) {
-    console.error('Error uploading agreement:', error);
+    console.error('❌ Error uploading agreement:', error);
     res.status(500).json({
       success: false,
       message: 'Error uploading agreement',

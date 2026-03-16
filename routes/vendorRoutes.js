@@ -1,6 +1,7 @@
 const express = require('express');
 const vendorController = require('../controllers/vendorController');
 const upload = require('../middleware/uploadMiddleware');
+const agreementUpload = require('../middleware/agreementUploadMiddleware');
 
 const router = express.Router();
 
@@ -99,6 +100,12 @@ router.post('/:id/cancel-interview', vendorController.cancelInterview);
 
 // ==================== AGREEMENT MANAGEMENT ROUTES ====================
 // Admin routes for managing vendor agreements
+
+// POST /api/vendors/:id/upload-agreement - Upload agreement file (Vendor)
+router.post('/:id/upload-agreement', agreementUpload.single('agreement'), vendorController.uploadAgreement);
+
+// PATCH /api/vendors/:id/agreement-upload - Save agreement URL and date (Vendor)
+router.patch('/:id/agreement-upload', vendorController.updateAgreementUpload);
 
 // POST /api/vendors/:id/approve-agreement - Send agreement ready notification
 router.post('/:id/approve-agreement', vendorController.approveVendorForAgreement);

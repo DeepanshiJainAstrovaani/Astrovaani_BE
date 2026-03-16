@@ -2039,3 +2039,94 @@ exports.rejectVendorNotification = async (req, res) => {
   }
 };
 
+// Upload vendor agreement PDF to Cloudinary
+exports.uploadAgreement = async (req, res) => {
+  try {
+    const { id: vendorId } = req.params;
+
+    // Check if vendor exists
+    const vendor = await vendorModel.getVendorById(vendorId);
+    if (!vendor) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Vendor not found' 
+      });
+    }
+
+    // Check if file was uploaded
+    if (!req.file || !req.file.path) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'No file uploaded or upload failed' 
+      });
+    }
+
+    console.log('📤 Agreement uploaded to Cloudinary:', req.file.path);
+
+    // Return the Cloudinary URL
+    res.json({
+      success: true,
+      message: 'Agreement uploaded successfully',
+      agreementUrl: req.file.path
+    });
+
+  } catch (error) {
+    console.error('Error uploading agreement:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error uploading agreement',
+      error: error.message
+    });
+  }
+};
+
+// Update vendor agreement URL and upload date in database
+exports.updateAgreementUpload = async (req, res) => {
+  try {
+    const { id: vendorId } = req.params;
+    const { agreement, agreementuploaddate } = req.body;
+
+    // Validate input
+    if (!agreement || !agreementuploaddate) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Agreement URL and upload date are required' 
+      });
+    }
+
+    // Check if vendor exists
+    const vendor = await vendorModel.getVendorById(vendorId);
+    if (!vendor) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Vendor not found' 
+      });
+    }
+
+    // Update vendor agreement information
+    const updateData = {
+      agreement,
+      agreementuploaddate,
+      agreementStatus: 'pending' // Set status to pending for admin review
+    };
+
+    const updatedVendor = await vendorModel.updateVendor(vendorId, updateData);
+
+    console.log('✅ Agreement information updated in database:', vendorId);
+
+    res.json({
+      success: true,
+      message: 'Agreement information saved successfully',
+      vendor: updatedVendor
+    });
+
+  } catch (error) {
+    console.error('Error updating agreement:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating agreement',
+      error: error.message
+    });
+  }
+};
+

@@ -2039,6 +2039,61 @@ exports.rejectVendorNotification = async (req, res) => {
   }
 };
 
+// ==================== DOWNLOAD AGREEMENT ====================
+// Public endpoint - vendors download their agreement from their app
+exports.downloadAgreement = async (req, res) => {
+  try {
+    const { id: vendorId } = req.params;
+    const { format } = req.query; // format can be 'html' or 'pdf' (default: 'pdf')
+
+    // Get vendor details
+    const vendor = await vendorModel.getVendorById(vendorId);
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vendor not found'
+      });
+    }
+
+    // Check if agreement exists
+    if (!vendor.agreement) {
+      return res.status(404).json({
+        success: false,
+        message: 'Agreement not found for this vendor'
+      });
+    }
+
+    console.log('📥 Agreement download requested:', {
+      vendorId,
+      vendorName: vendor.name,
+      agreementUrl: vendor.agreement,
+      format: format || 'pdf'
+    });
+
+    // If format is html, return the agreement URL
+    if (format === 'html') {
+      // Return the Cloudinary URL which can be downloaded
+      return res.json({
+        success: true,
+        agreementUrl: vendor.agreement,
+        fileName: `Agreement_${vendor.name?.replace(/\s+/g, '_') || 'Vendor'}.pdf`
+      });
+    }
+
+    // If format is pdf (or default), redirect to Cloudinary or fetch and return
+    // Option 1: Redirect to Cloudinary (simplest)
+    res.redirect(vendor.agreement);
+
+  } catch (error) {
+    console.error('❌ Error downloading agreement:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error downloading agreement',
+      error: error.message
+    });
+  }
+};
+
 // Upload vendor agreement PDF to Cloudinary
 exports.uploadAgreement = async (req, res) => {
   try {

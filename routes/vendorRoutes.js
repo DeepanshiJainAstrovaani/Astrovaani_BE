@@ -107,6 +107,9 @@ router.post('/:id/upload-agreement', agreementUpload.single('agreement'), vendor
 // PATCH /api/vendors/:id/agreement-upload - Save agreement URL and date (Vendor)
 router.patch('/:id/agreement-upload', vendorController.updateAgreementUpload);
 
+// GET /api/vendors/:id/download-agreement - Download agreement (Public - Vendor)
+router.get('/:id/download-agreement', vendorController.downloadAgreement);
+
 // POST /api/vendors/:id/approve-agreement - Send agreement ready notification
 router.post('/:id/approve-agreement', vendorController.approveVendorForAgreement);
 

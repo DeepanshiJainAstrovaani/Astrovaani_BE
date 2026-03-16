@@ -1970,18 +1970,29 @@ exports.rejectVendorAgreement = async (req, res) => {
 exports.rejectVendorNotification = async (req, res) => {
   try {
     const vendorId = req.params.id;
-    const { mobile, templateName, message, reason } = req.body;
+    const { reason } = req.body;
 
     console.log('📱 Reject Vendor Notification Request');
     console.log('   Vendor ID:', vendorId);
-    console.log('   Mobile:', mobile);
-    console.log('   Template:', templateName);
     console.log('   Reason:', reason);
 
-    if (!mobile || !templateName) {
-      return res.status(400).json({
+    // Get vendor details
+    const vendor = await vendorModel.getVendorById(vendorId);
+    if (!vendor) {
+      return res.status(404).json({
         success: false,
-        message: 'Mobile number and template name are required'
+        message: 'Vendor not found'
+      });
+    }
+
+    const name = (vendor.name || '').trim();
+    const mobile = (vendor.phone || vendor.whatsapp || '').replace(/\s+/g, '');
+
+    if (!mobile) {
+      console.warn('⚠️ No mobile number found for vendor');
+      return res.json({
+        success: true,
+        message: 'Vendor will be rejected but WhatsApp not sent (no phone number)'
       });
     }
 
@@ -1996,67 +2007,119 @@ exports.rejectVendorNotification = async (req, res) => {
 
     const mobileFormatted = normalizeMobile(mobile);
     
-    // Send WhatsApp notification using IconicSolution API
-    const sendRejectionNotification = async () => {
-      const apiKey = process.env.ICONIC_API_KEY;
-      const whatsappApiUrl = 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
+    // Send WhatsApp notification via Meta WhatsApp Cloud API
+    let whatsappSent = false;
+    let whatsappResponse = null;
 
-      if (!apiKey) {
-        throw new Error('ICONIC_API_KEY not configured');
-      }
-
-      const FormData = require('form-data');
-      const formData = new FormData();
-      formData.append('apikey', apiKey);
-      formData.append('mobile', mobileFormatted);
-      formData.append('templatename', templateName);
-      formData.append('dvariables', message); // message is already JSON string like '["name"]'
-
-      console.log('🔄 Sending rejection WhatsApp via IconicSolution');
+    try {
+      console.log('🔄 Sending Rejection via Meta WhatsApp Cloud API');
       console.log('   Mobile:', mobileFormatted);
-      console.log('   Template:', templateName);
-      console.log('   Variables:', message);
+      console.log('   Vendor Name:', name);
+      console.log('   Reason:', reason);
+      
+      const phoneNumberId = process.env.META_WHATSAPP_PHONE_NUMBER_ID;
+      const accessToken = process.env.META_WHATSAPP_ACCESS_TOKEN;
+      
+      if (!phoneNumberId || !accessToken) {
+        throw new Error('Meta WhatsApp credentials not configured');
+      }
+      
+      const metaUrl = `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`;
+      
+      const payload = {
+        messaging_product: "whatsapp",
+        to: mobileFormatted,
+        type: "template",
+        template: {
+          name: "vendor_onboarding_rejected",
+          language: {
+            code: "en"
+          },
+          components: [
+            {
+              type: "body",
+              parameters: [
+                {
+                  type: "text",
+                  text: name
+                }
+              ]
+            }
+          ]
+        }
+      };
+      
+      console.log('📤 Sending to Meta API:', metaUrl);
+      console.log('   - To:', mobileFormatted);
+      console.log('   - Template:', payload.template.name);
+      console.log('   - Vendor Name:', name);
 
-      const axios = require('axios');
-      const response = await axios.post(whatsappApiUrl, formData, {
-        headers: formData.getHeaders(),
-        timeout: 15000
-      });
-
-      console.log('✅ WhatsApp API Response:', response.data);
-
-      // Log notification to database
-      const MessageNotification = require('../models/notificationModel');
-      await MessageNotification.create({
-        vendorId,
-        type: 'whatsapp',
-        payload: {
-          mobile: mobileFormatted,
-          templateName,
-          variables: message, // Already a JSON string from frontend
-          reason
+      const response = await axios.post(metaUrl, payload, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
         },
-        status: 'sent',
-        providerResponse: response.data
+        timeout: 30000
       });
 
-      return response.data;
-    };
+      whatsappResponse = response.data;
+      console.log('✅ Meta WhatsApp API Response:', JSON.stringify(whatsappResponse, null, 2));
+      
+      if (whatsappResponse && whatsappResponse.messages && whatsappResponse.messages.length > 0) {
+        whatsappSent = true;
+        console.log('✅ Rejection notification sent successfully via Meta WhatsApp!');
+        
+        // Log notification
+        await MessageNotification.create({ 
+          vendorId: vendor._id, 
+          type: 'whatsapp', 
+          payload: { mobile: mobileFormatted, reason }, 
+          status: 'sent', 
+          providerResponse: whatsappResponse
+        });
+      } else {
+        console.warn('⚠️ Meta API returned unexpected response:', whatsappResponse);
+        await MessageNotification.create({ 
+          vendorId: vendor._id, 
+          type: 'whatsapp', 
+          payload: { mobile: mobileFormatted, reason }, 
+          status: 'failed', 
+          error: whatsappResponse
+        });
+      }
+    } catch (waErr) {
+      const errDetail = waErr?.response?.data || { message: waErr.message, code: waErr.code };
+      console.error('❌ WhatsApp send error:', JSON.stringify(errDetail, null, 2));
+      whatsappResponse = errDetail;
+      
+      // Log failed notification
+      await MessageNotification.create({ 
+        vendorId: vendor._id, 
+        type: 'whatsapp', 
+        payload: { mobile: mobileFormatted, reason }, 
+        status: 'failed', 
+        error: errDetail
+      });
+    }
 
-    // Send notification
-    const result = await sendRejectionNotification();
+    // Update vendor status to rejected
+    vendor.status = 'rejected';
+    vendor.onboardingstatus = 'rejected';
+    await vendor.save();
 
     res.json({
       success: true,
-      message: 'Rejection notification sent successfully',
-      data: result
+      message: whatsappSent 
+        ? 'Vendor rejected and notification sent successfully' 
+        : 'Vendor rejected (WhatsApp send failed)',
+      whatsappSent
     });
 
   } catch (error) {
-    console.error('❌ Error sending rejection notification:', error);
+    console.error('❌ Error rejecting vendor:', error);
     res.status(500).json({
       success: false,
-      message: 'Error sending rejection notification',
+      message: 'Error rejecting vendor',
       error: error.message
     });
   }

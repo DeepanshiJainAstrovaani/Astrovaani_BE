@@ -356,12 +356,32 @@ exports.notifyVendorSlots = async (req, res) => {
       
       const metaUrl = `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`;
       
+      // Get the first scheduled slot to extract date and time
+      const firstSlot = vendor.schedules && vendor.schedules.length > 0 ? vendor.schedules[0] : null;
+      let dateTimeStr = 'TBD';
+      let interviewerName = (req.body?.interviewerName || 'Our Team').trim();
+      
+      if (firstSlot && firstSlot.scheduledAt) {
+        const slotDate = new Date(firstSlot.scheduledAt);
+        const formattedDate = slotDate.toLocaleDateString('en-GB', { 
+          day: '2-digit', 
+          month: 'long', 
+          year: 'numeric' 
+        });
+        const formattedTime = slotDate.toLocaleTimeString('en-US', { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: true 
+        });
+        dateTimeStr = `${formattedDate}, ${formattedTime}`;
+      }
+      
       const payload = {
         messaging_product: "whatsapp",
         to: mobileFormatted,
         type: "template",
         template: {
-          name: "interviewscheduling",
+          name: "vendor_meeting_link_notification",
           language: {
             code: "en"
           },
@@ -371,18 +391,11 @@ exports.notifyVendorSlots = async (req, res) => {
               parameters: [
                 {
                   type: "text",
-                  text: name
-                }
-              ]
-            },
-            {
-              type: "button",
-              sub_type: "url",
-              index: "0",
-              parameters: [
+                  text: dateTimeStr
+                },
                 {
                   type: "text",
-                  text: interviewCode
+                  text: interviewerName
                 }
               ]
             }
@@ -393,8 +406,9 @@ exports.notifyVendorSlots = async (req, res) => {
       console.log('📤 Sending to Meta API:', metaUrl);
       console.log('   - Phone Number ID:', phoneNumberId);
       console.log('   - To:', mobileFormatted);
-      console.log('   - Vendor Name:', name);
-      console.log('   - Interview Link:', link);
+      console.log('   - Template:', payload.template.name);
+      console.log('   - Date/Time:', dateTimeStr);
+      console.log('   - Interviewer:', interviewerName);
       console.log('📋 Full Payload:', JSON.stringify(payload, null, 2));
       
       const sendRes = await axios.post(metaUrl, payload, { 
@@ -761,19 +775,6 @@ exports.sendMeetingLink = async (req, res) => {
     confirmedSlot.meetLink = meetingLink;
     await vendor.save();
 
-    // Format the slot date and time
-    const slotDate = confirmedSlot.scheduledAt ? new Date(confirmedSlot.scheduledAt) : new Date();
-    const formattedDate = slotDate.toLocaleDateString('en-GB', { 
-      day: '2-digit', 
-      month: 'short', 
-      year: 'numeric' 
-    });
-    const formattedTime = slotDate.toLocaleTimeString('en-US', { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      hour12: true 
-    });
-
     // Prepare WhatsApp message
     const name = (vendor.name || '').trim();
     const mobile = (vendor.phone || vendor.whatsapp || '').replace(/\s+/g, '');
@@ -790,95 +791,117 @@ exports.sendMeetingLink = async (req, res) => {
     const normalizeMobile = (raw) => {
       if (!raw) return raw;
       let digits = raw.replace(/[^0-9]/g, '');
-      if (digits.length === 10) digits = '91' + digits; // assume India
+      if (digits.length === 10) digits = '91' + digits;
       if (digits.length === 11 && digits.startsWith('0')) digits = '91' + digits.slice(1);
       return digits;
     };
     
     const mobileFormatted = normalizeMobile(mobile);
 
-    // Build WhatsApp message
-    const msg = `🎉 *Great news, ${name}!*\n\nYour interview with *Astrovaani* is confirmed!\n\n📅 *Date & Time:* ${formattedDate} at ${formattedTime}\n🔗 *Meeting Link:* ${meetingLink}\n\nPlease join on time. Good luck!\n\n- Team Astrovaani`;
-
     console.log('✅ Meeting link saved:', {
       vendorId: vendor._id,
       vendorName: vendor.name,
       meetingLink,
-      phone: mobileFormatted,
-      slotDateTime: `${formattedDate} at ${formattedTime}`
+      phone: mobileFormatted
     });
 
-    // Send WhatsApp notification (same configuration as notifyVendorSlots)
+    // Send WhatsApp notification via Meta WhatsApp Cloud API
     let whatsappSent = false;
     let whatsappResponse = null;
-    const isDummyMode = false; // ✅ PRODUCTION MODE ENABLED - Real WhatsApp sending active!
 
-    if (isDummyMode) {
-      console.log('🧪 DUMMY MODE - WhatsApp message preview:');
-      console.log('📱 To:', mobileFormatted);
-      console.log('📝 Message:\n' + msg);
-      whatsappSent = true;
-    } else {
-      // REAL MODE: Use simple text template (easier to get approved than button template)
-      const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
-      const apiKey = process.env.ICONIC_API_KEY;
-      // Simple text template with meeting link as variable (no button complexity)
-      const templateName = 'vendor_meeting_link_simple';
+    try {
+      console.log('🔄 Sending Meeting Link via Meta WhatsApp Cloud API');
+      console.log('   Mobile:', mobileFormatted);
+      console.log('   Vendor Name:', name);
+      console.log('   Meeting Link:', meetingLink);
       
-      // Format timing for template
-      const formattedTiming = `${formattedDate} at ${formattedTime}`;
-
-      if (!apiKey) {
-        console.error('❌ ICONIC_API_KEY not found in .env');
-        whatsappResponse = { error: 'API key not configured' };
-      } else {
-        try {
-          console.log('🔄 Sending WhatsApp via template:', templateName);
-          console.log('   Mobile:', mobileFormatted);
-          console.log('   Variables:', [name, formattedTiming, meetingLink]);
-          
-          const FormData = require('form-data');
-          const formData = new FormData();
-          formData.append('apikey', apiKey);
-          formData.append('mobile', mobileFormatted);
-          formData.append('templatename', templateName);
-          
-          // Template has 3 variables: {{1}} = vendor name, {{2}} = date/time, {{3}} = meeting link
-          const templateVars = [name, formattedTiming, meetingLink];
-          formData.append('dvariables', JSON.stringify(templateVars));
-
-          const response = await axios.post(whatsappApiUrl, formData, {
-            headers: formData.getHeaders(),
-            timeout: 30000
-          });
-
-          whatsappResponse = response.data;
-          console.log('✅ WhatsApp API Response:', JSON.stringify(whatsappResponse, null, 2));
-          
-          // Check for success (handle different response formats - same as notifyVendorSlots)
-          if (whatsappResponse && (
-            whatsappResponse.status === 'success' || 
-            whatsappResponse.success === true ||
-            whatsappResponse.statuscode === 200 ||
-            whatsappResponse.statuscode === 2000 ||
-            whatsappResponse.statusCode === 200
-          )) {
-            whatsappSent = true;
-            console.log('✅ WhatsApp sent successfully!');
-          } else {
-            console.warn('⚠️ WhatsApp API returned non-success status:', whatsappResponse);
-            // Still log as sent if we got a response without error
-            if (whatsappResponse && !whatsappResponse.error && !whatsappResponse.message?.includes('no active')) {
-              whatsappSent = true;
-              console.log('⚠️ Assuming success based on no error in response');
-            }
-          }
-        } catch (waErr) {
-          const errDetail = waErr?.response?.data || { message: waErr.message, code: waErr.code };
-          console.error('❌ WhatsApp send error:', JSON.stringify(errDetail, null, 2));
-          whatsappResponse = errDetail;
-        }
+      const phoneNumberId = process.env.META_WHATSAPP_PHONE_NUMBER_ID;
+      const accessToken = process.env.META_WHATSAPP_ACCESS_TOKEN;
+      
+      if (!phoneNumberId || !accessToken) {
+        throw new Error('Meta WhatsApp credentials not configured');
       }
+      
+      const metaUrl = `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`;
+      
+      const payload = {
+        messaging_product: "whatsapp",
+        to: mobileFormatted,
+        type: "template",
+        template: {
+          name: "vendor_meeting_link",
+          language: {
+            code: "en"
+          },
+          components: [
+            {
+              type: "body",
+              parameters: [
+                {
+                  type: "text",
+                  text: name
+                },
+                {
+                  type: "text",
+                  text: meetingLink
+                }
+              ]
+            }
+          ]
+        }
+      };
+      
+      console.log('📤 Sending to Meta API:', metaUrl);
+      console.log('   - To:', mobileFormatted);
+      console.log('   - Template:', payload.template.name);
+      console.log('   - Variables:', [name, meetingLink]);
+
+      const response = await axios.post(metaUrl, payload, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 30000
+      });
+
+      whatsappResponse = response.data;
+      console.log('✅ Meta WhatsApp API Response:', JSON.stringify(whatsappResponse, null, 2));
+      
+      if (whatsappResponse && whatsappResponse.messages && whatsappResponse.messages.length > 0) {
+        whatsappSent = true;
+        console.log('✅ Meeting link sent successfully via Meta WhatsApp!');
+        
+        // Log notification
+        await MessageNotification.create({ 
+          vendorId: vendor._id, 
+          type: 'whatsapp', 
+          payload: { mobile: mobileFormatted, meetingLink }, 
+          status: 'sent', 
+          providerResponse: whatsappResponse
+        });
+      } else {
+        console.warn('⚠️ Meta API returned unexpected response:', whatsappResponse);
+        await MessageNotification.create({ 
+          vendorId: vendor._id, 
+          type: 'whatsapp', 
+          payload: { mobile: mobileFormatted, meetingLink }, 
+          status: 'failed', 
+          error: whatsappResponse
+        });
+      }
+    } catch (waErr) {
+      const errDetail = waErr?.response?.data || { message: waErr.message, code: waErr.code };
+      console.error('❌ WhatsApp send error:', JSON.stringify(errDetail, null, 2));
+      whatsappResponse = errDetail;
+      
+      // Log failed notification
+      await MessageNotification.create({ 
+        vendorId: vendor._id, 
+        type: 'whatsapp', 
+        payload: { mobile: mobileFormatted, meetingLink }, 
+        status: 'failed', 
+        error: errDetail
+      });
     }
 
     res.json({

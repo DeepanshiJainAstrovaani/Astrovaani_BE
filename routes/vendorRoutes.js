@@ -1,6 +1,7 @@
 const express = require('express');
 const vendorController = require('../controllers/vendorController');
 const upload = require('../middleware/uploadMiddleware');
+const agreementUpload = require('../middleware/agreementUploadMiddleware');
 
 const router = express.Router();
 
@@ -99,6 +100,36 @@ router.post('/:id/cancel-interview', vendorController.cancelInterview);
 
 // ==================== AGREEMENT MANAGEMENT ROUTES ====================
 // Admin routes for managing vendor agreements
+
+// POST /api/vendors/:id/upload-agreement - Upload agreement file (Vendor)
+router.post('/:id/upload-agreement', agreementUpload.single('agreement'), vendorController.uploadAgreement);
+
+// PATCH /api/vendors/:id/agreement-upload - Save agreement URL and date (Vendor)
+router.patch('/:id/agreement-upload', vendorController.updateAgreementUpload);
+
+// GET /api/vendors/:id/download-agreement - Download agreement (Public - Vendor)
+router.get('/:id/download-agreement', vendorController.downloadAgreement);
+
+// GET /api/vendors/:id/agreement-debug - Debug agreement URL stored in DB
+router.get('/:id/agreement-debug', async (req, res) => {
+  try {
+    const vendorModel = require('../models/vendorModel');
+    const vendor = await vendorModel.getVendorById(req.params.id);
+    if (!vendor) {
+      return res.json({ error: 'Vendor not found' });
+    }
+    res.json({
+      vendorId: vendor._id,
+      vendorName: vendor.name,
+      agreementUrl: vendor.agreement,
+      agreementStatus: vendor.agreementStatus,
+      agreementUploadDate: vendor.agreementuploaddate,
+      agreementExists: !!vendor.agreement
+    });
+  } catch (error) {
+    res.json({ error: error.message });
+  }
+});
 
 // POST /api/vendors/:id/approve-agreement - Send agreement ready notification
 router.post('/:id/approve-agreement', vendorController.approveVendorForAgreement);

@@ -383,7 +383,7 @@ exports.notifyVendorSlots = async (req, res) => {
         to: mobileFormatted,
         type: "template",
         template: {
-          name: "schedule_interview",
+          name: "interviewscheduling",
           language: {
             code: "en"
           },
@@ -400,7 +400,7 @@ exports.notifyVendorSlots = async (req, res) => {
             {
               type: "button",
               sub_type: "url",
-              index: 0,
+              index: "0",
               parameters: [
                 {
                   type: "text",

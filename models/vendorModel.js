@@ -21,7 +21,33 @@ const Vendor = require('./schemas/vendorSchema');
 // Fetch all vendors
 exports.getAllVendors = async () => {
   try {
-    const vendors = await Vendor.find({}).lean();
+    const projection = {
+      name: 1,
+      photo: 1,
+      image_url: 1,
+      category: 1,
+      experience: 1,
+      skills: 1,
+      language: 1,
+      availability: 1,
+      chatstatus: 1,
+      callstatus: 1,
+      price: 1,
+      priceperminute: 1,
+      '15minrate': 1,
+      '25minrate': 1,
+      '30minrate': 1,
+      '45minrate': 1,
+      '1hourrate': 1,
+      '90minrate': 1,
+      rating: 1,
+      status: 1,
+      is_available: 1,
+      pricingtype: 1,
+      onboardingstatus: 1
+    };
+
+    const vendors = await Vendor.find({}, projection).lean();
     // Convert _id to id for each vendor
     return vendors.map(v => ({
       ...v,

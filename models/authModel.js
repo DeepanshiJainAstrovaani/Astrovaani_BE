@@ -1,6 +1,13 @@
 const User = require('./schemas/userSchema');
-const { sendWhatsApp } = require('../utils/whatsappService');
+const axios = require('axios');
 require('dotenv').config();
+
+// WhatsApp Business API Configuration
+const WHATSAPP_CONFIG = {
+    phoneNumberId: "629164643621542",
+    accessToken: "EAATuPFpuF0IBQ6kvO3V5GYTN6iNF49RVMb0mQOAMXzl7TF1vOtV937Nb08wOnbuamYW3nLHPUOlSscHekF6aL4pZBP6ZCJUiMSzsBsVR6YqwucALZCejfxsKH65ZBteSSweY3PSWuZAp8wLvN0S9kKfUkyScfu2piBaFl7WqenxSZA5zBEA08fR9Bf1eIkjgZDZD",
+    apiVersion: "v19.0"
+};
 
 // Generate random 6-digit OTP
 const generateOTP = () => {
@@ -29,9 +36,7 @@ exports.initiateWhatsAppLogin = async (mobile) => {
         }
 
         // Send OTP via WhatsApp
-        // Accept templateName as optional second argument
-        let templateName = arguments.length > 1 ? arguments[1] : undefined;
-        await sendWhatsAppOTP(mobile, otp, templateName);
+        await sendWhatsAppOTP(mobile, otp);
 
         return { success: true, message: 'OTP sent successfully via WhatsApp' };
     } catch (error) {
@@ -42,29 +47,68 @@ exports.initiateWhatsAppLogin = async (mobile) => {
 
 async function sendWhatsAppOTP(mobile, otp) {
     try {
-        // Use the provided templateName or default to 'sendotp'
-        const message = otp;
-        let tn = arguments.length > 2 ? arguments[2] : 'sendotp';
-        console.log(`📱 [DEBUG] Sending OTP to ${mobile} using template: ${tn}`);
-        console.log(`🔑 [DEBUG] OTP: ${otp}`);
-        try {
-            const result = await sendWhatsApp(mobile, message, {
-                templateName: tn
-            });
-            console.log(`[DEBUG] sendWhatsApp result:`, result);
-            if (!result.success) {
-                console.error(`[ERROR] WhatsApp send failed:`, result);
-                throw new Error(result.error || 'Failed to send WhatsApp message');
-            }
-            console.log(`✅ OTP sent successfully via ${result.provider}`);
-            return { success: true, provider: result.provider };
-        } catch (err) {
-            console.error(`[ERROR] sendWhatsApp threw:`, err);
-            throw err;
+        // Format phone number (ensure it has country code)
+        let formattedNumber = mobile;
+        if (!formattedNumber.startsWith('91') && !formattedNumber.startsWith('+91')) {
+            formattedNumber = `91${mobile}`;
         }
+        formattedNumber = formattedNumber.replace(/^\+/, ''); // Remove + if present
+
+        console.log('📱 Sending WhatsApp OTP to:', formattedNumber, 'OTP:', otp);
+
+        const url = `https://graph.facebook.com/${WHATSAPP_CONFIG.apiVersion}/${WHATSAPP_CONFIG.phoneNumberId}/messages`;
+
+        const data = {
+            messaging_product: "whatsapp",
+            to: formattedNumber,
+            type: "template",
+            template: {
+                name: "sendotp",
+                language: {
+                    code: "en"
+                },
+                components: [
+                    {
+                        type: "body",
+                        parameters: [
+                            {
+                                type: "text",
+                                text: otp
+                            }
+                        ]
+                    },
+                    {
+                        type: "button",
+                        sub_type: "url",
+                        index: "0",
+                        parameters: [
+                            {
+                                type: "text",
+                                text: otp
+                            }
+                        ]
+                    }
+                ]
+            }
+        };
+
+        const response = await axios.post(url, data, {
+            headers: {
+                'Authorization': `Bearer ${WHATSAPP_CONFIG.accessToken}`,
+                'Content-Type': 'application/json'
+            },
+            family: 4, // Force IPv4 to avoid IPv6 connection issues
+            timeout: 10000 // 10 second timeout
+        });
+
+        console.log('✅ WhatsApp OTP sent successfully:', response.data);
+        return { success: true, data: response.data };
     } catch (error) {
-        console.error('[FATAL] Error sending WhatsApp OTP:', error);
-        throw error;
+        console.error('❌ WhatsApp OTP sending failed:', error.response?.data || error.message);
+        return { 
+            success: false, 
+            error: error.response?.data || error.message 
+        };
     }
 }
 

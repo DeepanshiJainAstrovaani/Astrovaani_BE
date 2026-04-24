@@ -360,6 +360,7 @@ exports.notifyVendorSlots = async (req, res) => {
       const firstSlot = vendor.schedules && vendor.schedules.length > 0 ? vendor.schedules[0] : null;
       let dateTimeStr = 'TBD';
       let interviewerName = (req.body?.interviewerName || 'Our Team').trim();
+      let scheduleLink = `${baseUrl}/interview?code=${interviewCode}`;
       
       if (firstSlot && firstSlot.scheduledAt) {
         const slotDate = new Date(firstSlot.scheduledAt);
@@ -376,12 +377,13 @@ exports.notifyVendorSlots = async (req, res) => {
         dateTimeStr = `${formattedDate}, ${formattedTime}`;
       }
       
+      // Use the Schedule Interview template with button
       const payload = {
         messaging_product: "whatsapp",
         to: mobileFormatted,
         type: "template",
         template: {
-          name: "vendor_meeting_link_notification",
+          name: "schedule_interview",
           language: {
             code: "en"
           },
@@ -391,11 +393,18 @@ exports.notifyVendorSlots = async (req, res) => {
               parameters: [
                 {
                   type: "text",
-                  text: dateTimeStr
-                },
+                  text: name
+                }
+              ]
+            },
+            {
+              type: "button",
+              sub_type: "url",
+              index: 0,
+              parameters: [
                 {
                   type: "text",
-                  text: interviewerName
+                  text: interviewCode
                 }
               ]
             }

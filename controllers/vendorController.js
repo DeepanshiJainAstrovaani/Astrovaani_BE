@@ -2,6 +2,14 @@ const vendorModel = require('../models/vendorModel');
 const axios = require('axios');
 const MessageNotification = require('../models/notificationModel'); // Renamed model to avoid conflict
 const nodemailer = require('nodemailer');
+
+const getVendorWhatsAppNumber = (vendor) => {
+  return (vendor?.whatsapp || '').replace(/\s+/g, '');
+};
+
+const getVendorWhatsAppTarget = (vendor, overrideNumber = null) => {
+  return (overrideNumber || getVendorWhatsAppNumber(vendor) || '').replace(/\s+/g, '');
+};
  
 // Get all vendors
 exports.getAllVendors = async (req, res) => {
@@ -319,8 +327,8 @@ exports.notifyVendorSlots = async (req, res) => {
     
     // Allow test phone number override from request body
     const testPhoneOverride = (req.body && req.body.testPhone) ? String(req.body.testPhone).replace(/\s+/g, '') : null;
-    const mobile = testPhoneOverride || (vendor.phone || vendor.whatsapp || '').replace(/\s+/g, '');
-    if (!mobile) return res.status(400).json({ message: 'Vendor mobile not available' });
+    const mobile = getVendorWhatsAppTarget(vendor, testPhoneOverride);
+    if (!mobile) return res.status(400).json({ message: 'Vendor WhatsApp number not available' });
 
     // Normalize mobile to include country code
     const normalizeMobile = (raw) => {
@@ -777,13 +785,13 @@ exports.sendMeetingLink = async (req, res) => {
 
     // Prepare WhatsApp message
     const name = (vendor.name || '').trim();
-    const mobile = (vendor.phone || vendor.whatsapp || '').replace(/\s+/g, '');
+    const mobile = getVendorWhatsAppNumber(vendor);
     
     if (!mobile) {
-      console.warn('⚠️ No mobile number found for vendor');
+      console.warn('⚠️ No WhatsApp number found for vendor');
       return res.json({
         success: true,
-        message: 'Meeting link saved but WhatsApp not sent (no phone number)'
+        message: 'Meeting link saved but WhatsApp not sent (no WhatsApp number)'
       });
     }
 
@@ -953,12 +961,12 @@ exports.notifyVendor = async (req, res) => {
 
     // Send WhatsApp notification reminder using template-based API
     const name = (vendor.name || '').trim();
-    const mobile = (vendor.phone || vendor.whatsapp || '').replace(/\s+/g, '');
+    const mobile = getVendorWhatsAppNumber(vendor);
     
     if (!mobile) {
       return res.status(400).json({ 
         success: false,
-        message: 'Vendor mobile number not available' 
+        message: 'Vendor WhatsApp number not available' 
       });
     }
 
@@ -1130,12 +1138,12 @@ exports.sendReminder = async (req, res) => {
     const interviewLink = `${baseUrl}/interview?code=${vendor.interviewcode}`;
     
     const name = (vendor.name || '').trim();
-    const mobile = (vendor.phone || vendor.whatsapp || '').replace(/\s+/g, '');
+    const mobile = getVendorWhatsAppNumber(vendor);
     
     if (!mobile) {
       return res.status(400).json({ 
         success: false,
-        message: 'Vendor mobile number not available' 
+        message: 'Vendor WhatsApp number not available' 
       });
     }
 
@@ -1284,7 +1292,7 @@ exports.scheduleInterview = async (req, res) => {
     
     // Prepare vendor contact details for WhatsApp
     const name = (vendor.name || '').trim();
-    const mobile = (vendor.phone || vendor.whatsapp || '').replace(/\s+/g, '');
+    const mobile = getVendorWhatsAppNumber(vendor);
     
     // Normalize mobile to include country code
     const normalizeMobile = (raw) => {
@@ -1383,7 +1391,7 @@ exports.cancelInterview = async (req, res) => {
 
     // Send rejection WhatsApp notification before clearing data
     const name = (vendor.name || '').trim();
-    const mobile = (vendor.phone || vendor.whatsapp || '').replace(/\s+/g, '');
+    const mobile = getVendorWhatsAppNumber(vendor);
     
     if (mobile) {
       // Normalize mobile to include country code
@@ -1518,13 +1526,13 @@ exports.approveVendorForAgreement = async (req, res) => {
 
     // Send WhatsApp notification about agreement approval
     const name = (vendor.name || '').trim();
-    const mobile = (vendor.phone || vendor.whatsapp || '').replace(/\s+/g, '');
+    const mobile = getVendorWhatsAppNumber(vendor);
     
     if (!mobile) {
-      console.warn('⚠️ No mobile number found for vendor');
+      console.warn('⚠️ No WhatsApp number found for vendor');
       return res.json({
         success: true,
-        message: 'Agreement approved but WhatsApp not sent (no phone number)'
+        message: 'Agreement approved but WhatsApp not sent (no WhatsApp number)'
       });
     }
 
@@ -1687,13 +1695,13 @@ exports.onboardVendor = async (req, res) => {
 
     // Send WhatsApp notification about successful onboarding
     const name = (vendor.name || '').trim();
-    const mobile = (vendor.phone || vendor.whatsapp || '').replace(/\s+/g, '');
+    const mobile = getVendorWhatsAppNumber(vendor);
     
     if (!mobile) {
-      console.warn('⚠️ No mobile number found for vendor');
+      console.warn('⚠️ No WhatsApp number found for vendor');
       return res.json({
         success: true,
-        message: 'Vendor onboarded but WhatsApp not sent (no phone number)',
+        message: 'Vendor onboarded but WhatsApp not sent (no WhatsApp number)',
         data: { status: vendor.status, onboardingstatus: vendor.onboardingstatus }
       });
     }
@@ -1843,13 +1851,13 @@ exports.rejectVendorAgreement = async (req, res) => {
 
     // Send WhatsApp notification
     const name = (vendor.name || '').trim();
-    const mobile = (vendor.phone || vendor.whatsapp || '').replace(/\s+/g, '');
+    const mobile = getVendorWhatsAppNumber(vendor);
     
     if (!mobile) {
-      console.warn('⚠️ No mobile number found for vendor');
+      console.warn('⚠️ No WhatsApp number found for vendor');
       return res.json({
         success: true,
-        message: 'Agreement rejected but WhatsApp not sent (no phone number)'
+        message: 'Agreement rejected but WhatsApp not sent (no WhatsApp number)'
       });
     }
 
@@ -1986,13 +1994,13 @@ exports.rejectVendorNotification = async (req, res) => {
     }
 
     const name = (vendor.name || '').trim();
-    const mobile = (vendor.phone || vendor.whatsapp || '').replace(/\s+/g, '');
+    const mobile = getVendorWhatsAppNumber(vendor);
 
     if (!mobile) {
-      console.warn('⚠️ No mobile number found for vendor');
+      console.warn('⚠️ No WhatsApp number found for vendor');
       return res.json({
         success: true,
-        message: 'Vendor will be rejected but WhatsApp not sent (no phone number)'
+        message: 'Vendor will be rejected but WhatsApp not sent (no WhatsApp number)'
       });
     }
 

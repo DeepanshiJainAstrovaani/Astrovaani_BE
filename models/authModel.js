@@ -1,4 +1,5 @@
 const User = require('./schemas/userSchema');
+const Vendor = require('./schemas/vendorSchema');
 const axios = require('axios');
 require('dotenv').config();
 
@@ -18,7 +19,27 @@ exports.initiateWhatsAppLogin = async (mobile) => {
     try {
         const otp = generateOTP();
 
-        // Check if user exists
+        // Check if vendor exists with this mobile
+        let vendor = await Vendor.findOne({ 
+            $or: [
+                { phone: mobile }, 
+                { whatsapp: mobile }
+            ] 
+        });
+
+        if (vendor) {
+            console.log('🔵 Vendor found for mobile:', mobile);
+            // Send OTP via WhatsApp
+            await sendWhatsAppOTP(mobile, otp);
+            return { 
+                success: true, 
+                message: 'OTP sent successfully via WhatsApp',
+                vendorName: vendor.name,
+                isNewVendor: !vendor.name || vendor.status === ''
+            };
+        }
+
+        // If not vendor, check if user exists
         let user = await User.findOne({ mobile }).select('+otp');
 
         if (user) {
@@ -114,36 +135,74 @@ async function sendWhatsAppOTP(mobile, otp) {
 
 exports.verifyWhatsAppOTP = async (mobile, otp) => {
     try {
-        // Find user with mobile and OTP
+        // First, try to find in User collection
         const user = await User.findOne({ mobile }).select('+otp +otpExpiry');
 
-        if (!user) {
-            return { success: false, message: 'User not found' };
+        if (user) {
+            if (user.otp !== otp) {
+                return { success: false, message: 'Invalid OTP' };
+            }
+
+            // Check if OTP has expired
+            if (user.otpExpiry && user.otpExpiry < new Date()) {
+                return { success: false, message: 'OTP has expired' };
+            }
+
+            // Clear OTP
+            user.otp = null;
+            user.otpExpiry = null;
+            await user.save();
+
+            return {
+                success: true,
+                user: { 
+                    _id: user._id.toString(),
+                    id: user._id.toString(), // Include both for compatibility
+                    mobile: user.mobile,
+                    name: user.name,
+                    email: user.email
+                }
+            };
         }
 
-        if (user.otp !== otp) {
-            return { success: false, message: 'Invalid OTP' };
+        // If not found in User, check Vendor collection
+        const vendor = await Vendor.findOne({ 
+            $or: [
+                { phone: mobile }, 
+                { whatsapp: mobile }
+            ] 
+        });
+
+        if (!vendor) {
+            return { success: false, message: 'User/Vendor not found' };
         }
 
-        // Check if OTP has expired
-        if (user.otpExpiry && user.otpExpiry < new Date()) {
-            return { success: false, message: 'OTP has expired' };
-        }
-
-        // Clear OTP
-        user.otp = null;
-        user.otpExpiry = null;
-        await user.save();
-
+        // For vendors, OTP verification is handled differently - just return vendor data
         return {
             success: true,
-            user: { 
-                _id: user._id.toString(),
-                id: user._id.toString(), // Include both for compatibility
-                mobile: user.mobile,
-                name: user.name,
-                email: user.email
-            }
+            vendor: { 
+                _id: vendor._id.toString(),
+                id: vendor._id.toString(), // Include both for compatibility
+                name: vendor.name,
+                phone: vendor.phone || vendor.whatsapp,
+                whatsapp: vendor.whatsapp,
+                email: vendor.email,
+                category: vendor.category,
+                status: vendor.status || '',
+                onboardingstatus: vendor.onboardingstatus,
+                agree: vendor.agree,
+                isSuspended: vendor.isSuspended || false,
+                suspensionEndDate: vendor.suspensionEndDate,
+                suspensionReason: vendor.suspensionReason,
+                flagCount: vendor.flagCount || 0,
+                photo: vendor.photo,
+                interviewStatus: vendor.interviewStatus,
+                agreementStatus: vendor.agreementStatus,
+                accountholder: vendor.accountholder,
+                accountno: vendor.accountno,
+                ifsc: vendor.ifsc
+            },
+            isNewVendor: !vendor.name || vendor.status === '' // If no name or status, treat as new
         };
     } catch (error) {
         console.error('Error in verifyWhatsAppOTP:', error);

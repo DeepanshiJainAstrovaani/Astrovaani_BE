@@ -265,22 +265,81 @@ exports.createVendorSchedules = async (req, res) => {
   try {
     const vendorId = req.params.id;
     const { slots } = req.body;
-    if (!Array.isArray(slots) || slots.length === 0) return res.status(400).json({ message: 'Slots required' });
+    
+    if (!Array.isArray(slots) || slots.length === 0) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Slots required and must be an array' 
+      });
+    }
+    
     const vendor = await vendorModel.getVendorById(vendorId);
-    if (!vendor) return res.status(404).json({ message: 'Vendor not found' });
+    if (!vendor) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Vendor not found' 
+      });
+    }
+
+    // Validate and map slots with proper date handling
+    const processedSlots = slots.map((slot, index) => {
+      // Validate required fields
+      if (!slot.scheduledAt) {
+        throw new Error(`Slot ${index + 1}: scheduledAt is required`);
+      }
+      
+      // Convert scheduledAt to Date if it's a string
+      let scheduledDate = slot.scheduledAt;
+      if (typeof scheduledDate === 'string') {
+        scheduledDate = new Date(scheduledDate);
+      }
+      
+      if (isNaN(scheduledDate.getTime())) {
+        throw new Error(`Slot ${index + 1}: Invalid date format for scheduledAt`);
+      }
+      
+      // Parse duration as number
+      const duration = parseInt(slot.duration, 10) || 30;
+      if (duration <= 0) {
+        throw new Error(`Slot ${index + 1}: Duration must be greater than 0`);
+      }
+      
+      return {
+        scheduledAt: scheduledDate,
+        duration: duration,
+        status: slot.status || 'proposed',
+        createdAt: new Date()
+      };
+    });
 
     // REPLACE slots instead of appending (FIX: prevents duplicates)
-    vendor.schedules = slots.map(slot => ({
-      scheduledAt: slot.scheduledAt,
-      duration: slot.duration,
-      status: slot.status || 'proposed'
-    }));
+    vendor.schedules = processedSlots;
     
     await vendor.save();
-    res.json({ proposed: vendor.schedules, confirmed: vendor.schedules.filter(s => s.status === 'confirmed') });
+    
+    console.log('✅ Schedules created successfully:', {
+      vendorId: vendor._id,
+      slotsCount: vendor.schedules.length,
+      slots: vendor.schedules.map(s => ({
+        date: s.scheduledAt,
+        duration: s.duration,
+        status: s.status
+      }))
+    });
+    
+    res.json({ 
+      success: true,
+      message: 'Schedules created successfully',
+      proposed: vendor.schedules, 
+      confirmed: vendor.schedules.filter(s => s.status === 'confirmed') 
+    });
   } catch (error) {
-    console.error('Error creating schedules:', error);
-    res.status(500).json({ message: 'Database error', error: error.message });
+    console.error('❌ Error creating schedules:', error);
+    res.status(400).json({ 
+      success: false,
+      message: 'Error creating schedules',
+      error: error.message 
+    });
   }
 };
 
@@ -1264,7 +1323,7 @@ exports.scheduleInterview = async (req, res) => {
     const { id } = req.params;
     const { schedules } = req.body;
 
-    if (!schedules || schedules.length === 0) {
+    if (!schedules || !Array.isArray(schedules) || schedules.length === 0) {
       return res.status(400).json({ 
         success: false,
         message: 'Please provide at least one schedule' 
@@ -1285,15 +1344,46 @@ exports.scheduleInterview = async (req, res) => {
       vendor.interviewcode = `IV${Date.now()}${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
     }
 
+    // Validate and process schedules
+    const processedSchedules = schedules.map((slot, index) => {
+      if (!slot.scheduledAt) {
+        throw new Error(`Schedule ${index + 1}: scheduledAt is required`);
+      }
+      
+      // Convert to Date if it's a string
+      let scheduledDate = slot.scheduledAt;
+      if (typeof scheduledDate === 'string') {
+        scheduledDate = new Date(scheduledDate);
+      }
+      
+      if (isNaN(scheduledDate.getTime())) {
+        throw new Error(`Schedule ${index + 1}: Invalid date format`);
+      }
+      
+      const duration = parseInt(slot.duration, 10) || 30;
+      if (duration <= 0) {
+        throw new Error(`Schedule ${index + 1}: Duration must be greater than 0`);
+      }
+      
+      return {
+        scheduledAt: scheduledDate,
+        duration: duration,
+        status: 'proposed',
+        createdAt: new Date()
+      };
+    });
+
     // Add new schedules
-    vendor.schedules = schedules.map(slot => ({
-      scheduledAt: new Date(slot.scheduledAt),
-      duration: slot.duration || 30,
-      status: 'proposed',
-      createdAt: new Date()
-    }));
+    vendor.schedules = processedSchedules;
 
     await vendor.save();
+
+    console.log('✅ Interview scheduled:', {
+      vendorId: vendor._id,
+      vendorName: vendor.name,
+      slotsCount: vendor.schedules.length,
+      interviewCode: vendor.interviewcode
+    });
 
     // Send WhatsApp notification with interview link
     const baseUrl = 'https://join.astrovaani.com'; // Production URL

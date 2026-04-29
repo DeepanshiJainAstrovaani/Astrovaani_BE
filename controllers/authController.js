@@ -39,7 +39,31 @@ exports.verifyWhatsAppOTP = async (req, res) => {
       return res.status(400).json(result);
     }
     
-    // Generate JWT token
+    // Handle vendor login
+    if (result.vendor) {
+      const token = jwt.sign(
+        { mobile: result.vendor.whatsapp || result.vendor.phone, vendorId: result.vendor.id },
+        process.env.JWT_SECRET,
+        { expiresIn: '7d' }
+      );
+
+      const vendorResponse = {
+        ...result.vendor,
+        _id: result.vendor._id || result.vendor.id,
+        id: result.vendor.id || result.vendor._id
+      };
+
+      console.log('✅ Verify OTP - Returning vendor:', vendorResponse);
+
+      return res.json({
+        success: true,
+        token,
+        vendor: vendorResponse,
+        isNewVendor: result.isNewVendor
+      });
+    }
+    
+    // Handle user login
     const token = jwt.sign(
       { mobile: result.user.mobile, userId: result.user.id },
       process.env.JWT_SECRET,

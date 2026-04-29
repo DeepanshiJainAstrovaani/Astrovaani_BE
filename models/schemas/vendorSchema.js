@@ -143,7 +143,7 @@ const vendorSchema = new mongoose.Schema({
   // Interview feedback fields
   interviewRating: { type: String, trim: true }, // Rating given during interview (1-5)
   interviewNotes: { type: String, trim: true }, // Notes from the interview
-  interviewStatus: { type: String, trim: true, default: 'completed' }, // completed | no-show | rescheduled
+  interviewStatus: { type: String, trim: true, default: 'pending' }, // pending | scheduled | completed | no-show | rescheduled
   interviewCompletedAt: { type: Date }, // Timestamp when interview feedback was saved
   
   // Agreement fields

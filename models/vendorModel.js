@@ -44,7 +44,19 @@ exports.getAllVendors = async () => {
       status: 1,
       is_available: 1,
       pricingtype: 1,
-      onboardingstatus: 1
+      onboardingstatus: 1,
+      agreement: 1,
+      agreementStatus: 1,
+      agreementuploaddate: 1,
+      agreementRejectionCount: 1,
+      joineddate: 1,
+      accountholder: 1,
+      accountno: 1,
+      ifsc: 1,
+      agree: 1,
+      whatsapp: 1,
+      phone: 1,
+      id: 1
     };
 
     const vendors = await Vendor.find({}, projection).lean();

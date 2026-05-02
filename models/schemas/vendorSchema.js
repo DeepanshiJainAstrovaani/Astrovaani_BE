@@ -195,6 +195,19 @@ const vendorSchema = new mongoose.Schema({
 vendorSchema.index({ category: 1 });
 vendorSchema.index({ is_available: 1 });
 
+// Pre-save middleware to ensure enum fields have valid values
+vendorSchema.pre('save', function(next) {
+  // Ensure chatstatus is valid
+  if (!this.chatstatus || !['online', 'offline'].includes(this.chatstatus)) {
+    this.chatstatus = 'offline';
+  }
+  // Ensure callstatus is valid
+  if (!this.callstatus || !['online', 'offline'].includes(this.callstatus)) {
+    this.callstatus = 'offline';
+  }
+  next();
+});
+
 const Vendor = mongoose.model('Vendor', vendorSchema, 'community');
 
 module.exports = Vendor;

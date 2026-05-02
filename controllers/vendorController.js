@@ -2,6 +2,7 @@ const vendorModel = require('../models/vendorModel');
 const axios = require('axios');
 const MessageNotification = require('../models/notificationModel'); // Renamed model to avoid conflict
 const nodemailer = require('nodemailer');
+const Admin = require('../models/Admin');
 
 const getVendorWhatsAppNumber = (vendor) => {
   return (vendor?.whatsapp || '').replace(/\s+/g, '');
@@ -137,6 +138,14 @@ exports.updateVendor = async (req, res) => {
     }
 
     console.log('🔵 vendorData to update:', vendorData);
+    
+    // Ensure chatstatus and callstatus are valid enum values (FIX: handle empty strings)
+    if (vendorData.chatstatus !== undefined && (!vendorData.chatstatus || !['online', 'offline'].includes(vendorData.chatstatus))) {
+      vendorData.chatstatus = 'offline';
+    }
+    if (vendorData.callstatus !== undefined && (!vendorData.callstatus || !['online', 'offline'].includes(vendorData.callstatus))) {
+      vendorData.callstatus = 'offline';
+    }
 
     // Check if this is an interview feedback submission
     const isInterviewFeedback = vendorData.interviewRating && vendorData.onboardingstatus;
@@ -314,6 +323,14 @@ exports.createVendorSchedules = async (req, res) => {
 
     // REPLACE slots instead of appending (FIX: prevents duplicates)
     vendor.schedules = processedSlots;
+    
+    // Ensure chatstatus and callstatus have valid enum values (FIX: handle empty strings from old records)
+    if (!vendor.chatstatus || !['online', 'offline'].includes(vendor.chatstatus)) {
+      vendor.chatstatus = 'offline';
+    }
+    if (!vendor.callstatus || !['online', 'offline'].includes(vendor.callstatus)) {
+      vendor.callstatus = 'offline';
+    }
     
     await vendor.save();
     
@@ -659,9 +676,23 @@ exports.getInterviewByCode = async (req, res) => {
       ? vendor.schedules.filter(s => s.status === 'proposed')
       : [];
 
+    // Fetch interviewer name if interviewerid is available
+    let interviewerName = 'Our Team';
+    if (vendor.interviewerid) {
+      try {
+        const admin = await Admin.findById(vendor.interviewerid).select('name');
+        if (admin) {
+          interviewerName = admin.name;
+        }
+      } catch (err) {
+        console.warn('⚠️ Could not fetch admin details for interviewerid:', vendor.interviewerid, err.message);
+      }
+    }
+
     console.log('✅ Interview found:', {
       vendorId: vendor._id,
       vendorName: vendor.name,
+      interviewerName: interviewerName,
       onboardingstatus: vendor.onboardingstatus,
       isScheduled,
       totalSchedules: vendor.schedules ? vendor.schedules.length : 0,
@@ -680,6 +711,7 @@ exports.getInterviewByCode = async (req, res) => {
         category: vendor.category,
         interviewcode: vendor.interviewcode,
         interviewerid: vendor.interviewerid,
+        interviewerName: interviewerName,
         onboardingstatus: vendor.onboardingstatus
       },
       isScheduled,

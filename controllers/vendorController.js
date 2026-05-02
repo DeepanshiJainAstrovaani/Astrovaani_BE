@@ -835,6 +835,67 @@ exports.selectInterviewSlot = async (req, res) => {
       removedSlots: unselectedSlots.length
     });
 
+    // Send WhatsApp notification in background (don't block response)
+    (async () => {
+      try {
+        // Fetch interviewer name
+        let interviewerName = 'Our Team';
+        if (vendor.interviewerid) {
+          try {
+            const admin = await Admin.findById(vendor.interviewerid).select('name');
+            if (admin) {
+              interviewerName = admin.name;
+            }
+          } catch (err) {
+            console.error('Error fetching interviewer name:', err.message);
+          }
+        }
+
+        // Format the scheduled date/time
+        const scheduledDate = new Date(confirmedSlot.scheduledAt);
+        const formattedDateTime = scheduledDate.toLocaleString('en-GB', {
+          day: '2-digit',
+          month: 'long',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        });
+
+        // Build the message with dynamic parameters (no newlines for Meta WhatsApp compatibility)
+        const vendorName = (vendor.name || '').trim();
+        const messageDetails = `your interview has been scheduled for ${formattedDateTime}. Interviewer - ${interviewerName}. You'll get the gmeet link before the interview. Please be available on the scheduled time.`;
+
+        const templateVars = [vendorName, messageDetails];
+
+        console.log('📱 Sending interview scheduled WhatsApp notification:', {
+          vendorId: vendor._id,
+          vendorName: vendorName,
+          interviewerName: interviewerName,
+          scheduledDateTime: formattedDateTime,
+          phone: vendor.whatsapp || vendor.phone
+        });
+
+        const { sendWhatsApp } = require('../utils/whatsappService');
+        const whatsappNumber = (vendor.whatsapp || vendor.phone || '').replace(/\s+/g, '');
+
+        if (whatsappNumber) {
+          const result = await sendWhatsApp(whatsappNumber, JSON.stringify(templateVars), { 
+            templateName: 'notification'
+          });
+
+          console.log('✅ WhatsApp notification sent:', {
+            success: result.success,
+            provider: result.provider
+          });
+        } else {
+          console.warn('⚠️ No WhatsApp/phone number available for vendor:', vendor._id);
+        }
+      } catch (err) {
+        console.error('❌ Error sending WhatsApp notification:', err.message);
+      }
+    })();
+
     res.json({
       success: true,
       message: 'Interview slot confirmed successfully!',

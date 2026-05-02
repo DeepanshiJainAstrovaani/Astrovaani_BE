@@ -23,8 +23,9 @@ const normalizeMobileNoPrefix = (raw) => {
 
 /**
  * Send WhatsApp via Meta WhatsApp Cloud API
+ * Supports both simple OTP and template-based messages with parameters
  */
-async function sendViaMetaWhatsApp(mobile, otp) {
+async function sendViaMetaWhatsApp(mobile, messageOrOtp, options = {}) {
   const phoneNumberId = process.env.META_WHATSAPP_PHONE_NUMBER_ID;
   const accessToken = process.env.META_WHATSAPP_ACCESS_TOKEN;
   
@@ -35,44 +36,67 @@ async function sendViaMetaWhatsApp(mobile, otp) {
   const mobileFormatted = normalizeMobileNoPrefix(mobile);
   const url = `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`;
   
+  // Parse template parameters if provided
+  const templateName = options.templateName || 'sendotp';
+  let templateParams = [];
+  
+  if (options.templateParams && Array.isArray(options.templateParams)) {
+    templateParams = options.templateParams;
+  } else if (typeof messageOrOtp === 'string' && messageOrOtp.startsWith('[')) {
+    // Try to parse JSON array
+    try {
+      templateParams = JSON.parse(messageOrOtp);
+    } catch {
+      templateParams = [messageOrOtp];
+    }
+  } else {
+    templateParams = [messageOrOtp];
+  }
+  
+  // Build body parameters
+  const bodyParameters = templateParams.map(param => ({
+    type: "text",
+    text: String(param)
+  }));
+  
   const data = {
     messaging_product: "whatsapp",
     to: mobileFormatted,
     type: "template",
     template: {
-      name: "sendotp",
+      name: templateName,
       language: {
         code: "en"
       },
       components: [
         {
           type: "body",
-          parameters: [
-            {
-              type: "text",
-              text: otp
-            }
-          ]
-        },
-        {
-          type: "button",
-          sub_type: "url",
-          index: "0",
-          parameters: [
-            {
-              type: "text",
-              text: otp
-            }
-          ]
+          parameters: bodyParameters
         }
       ]
     }
   };
   
+  // For OTP template, add button parameters
+  if (templateName === 'sendotp' && templateParams.length > 0) {
+    data.template.components.push({
+      type: "button",
+      sub_type: "url",
+      index: "0",
+      parameters: [
+        {
+          type: "text",
+          text: String(templateParams[0])
+        }
+      ]
+    });
+  }
+  
   console.log('📱 Sending via Meta WhatsApp Cloud API');
   console.log('   Phone Number ID:', phoneNumberId);
   console.log('   To:', mobileFormatted);
-  console.log('   OTP:', otp);
+  console.log('   Template:', templateName);
+  console.log('   Parameters:', templateParams);
   
   try {
     const response = await axios.post(url, data, {
@@ -143,7 +167,7 @@ async function sendViaTwilio(mobile, message) {
 /**
  * Send WhatsApp via IconicSolution (Template-based)
  */
-async function sendViaIconicSolution(mobile, message, templateName = 'sendotp') {
+async function sendViaIconicSolution(mobile, messageOrParams, templateName = 'sendotp') {
   const apiKey = process.env.ICONIC_API_KEY;
   
   if (!apiKey) {
@@ -154,10 +178,22 @@ async function sendViaIconicSolution(mobile, message, templateName = 'sendotp') 
   const sendUrl = 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
   const mobileFormatted = normalizeMobileNoPrefix(mobile);
   
+  // Parse template parameters
+  let dvariablesValue;
+  if (Array.isArray(messageOrParams)) {
+    dvariablesValue = JSON.stringify(messageOrParams);
+  } else if (typeof messageOrParams === 'string' && messageOrParams.startsWith('[')) {
+    // Already a JSON string
+    dvariablesValue = messageOrParams;
+  } else {
+    // Single parameter or plain message
+    dvariablesValue = JSON.stringify([messageOrParams]);
+  }
+  
   console.log('📱 Sending via IconicSolution WhatsApp');
   console.log('   Mobile:', mobileFormatted);
   console.log('   Template:', templateName);
-  console.log('   Message length:', message.length);
+  console.log('   Variables:', dvariablesValue);
   
   // Use FormData like customer frontend and vendorController
   const FormData = require('form-data');
@@ -165,7 +201,7 @@ async function sendViaIconicSolution(mobile, message, templateName = 'sendotp') 
   formData.append('apikey', apiKey);
   formData.append('mobile', mobileFormatted);
   formData.append('templatename', templateName);
-  formData.append('dvariables', message);
+  formData.append('dvariables', dvariablesValue);
   
   const response = await axios.post(sendUrl, formData, {
     headers: formData.getHeaders(),
@@ -199,10 +235,11 @@ async function sendViaIconicSolution(mobile, message, templateName = 'sendotp') 
  * Tries providers in order: Meta WhatsApp Cloud API → IconicSolution
  * 
  * @param {string} mobile - Mobile number
- * @param {string|null} message - Message to send (not used for Meta API, which uses templates)
+ * @param {string|Array} message - Message to send or template parameters
  * @param {Object} options - Optional settings
  * @param {string} options.otp - OTP code to send (for Meta WhatsApp)
- * @param {string} options.templateName - Template name for IconicSolution (default: 'sendotp')
+ * @param {string} options.templateName - Template name for both Meta and IconicSolution
+ * @param {Array} options.templateParams - Array of template parameters
  * @param {string} options.provider - Force specific provider: 'meta' or 'iconic'
  */
 async function sendWhatsApp(mobile, message, options = {}) {
@@ -211,9 +248,9 @@ async function sendWhatsApp(mobile, message, options = {}) {
   // Try Meta WhatsApp first (if not explicitly avoiding it)
   if (!forceProvider || forceProvider === 'meta') {
     try {
-      const otp = options.otp || message;
+      const messageOrOtp = options.otp || message;
       console.log(`\n🔄 Attempting WhatsApp via Meta Cloud API...`);
-      const result = await sendViaMetaWhatsApp(mobile, otp);
+      const result = await sendViaMetaWhatsApp(mobile, messageOrOtp, options);
       console.log(`✅ WhatsApp sent successfully via Meta WhatsApp!`);
       return {
         success: true,

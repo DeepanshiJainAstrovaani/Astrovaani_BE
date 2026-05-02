@@ -678,16 +678,29 @@ exports.getInterviewByCode = async (req, res) => {
 
     // Fetch interviewer name if interviewerid is available
     let interviewerName = 'Our Team';
+    console.log('🔍 DEBUG: vendor.interviewerid =', vendor.interviewerid);
+    console.log('🔍 DEBUG: interviewerid type =', typeof vendor.interviewerid);
+    console.log('🔍 DEBUG: interviewerid empty? =', !vendor.interviewerid);
+    
     if (vendor.interviewerid) {
       try {
+        console.log('🔍 DEBUG: Searching Admin with ID:', vendor.interviewerid);
         const admin = await Admin.findById(vendor.interviewerid).select('name');
+        console.log('🔍 DEBUG: Admin found:', admin);
         if (admin) {
           interviewerName = admin.name;
+          console.log('✅ DEBUG: Interviewer name set to:', interviewerName);
+        } else {
+          console.warn('⚠️ DEBUG: Admin not found for ID:', vendor.interviewerid);
         }
       } catch (err) {
-        console.warn('⚠️ Could not fetch admin details for interviewerid:', vendor.interviewerid, err.message);
+        console.error('🔴 DEBUG: Error fetching admin:', err.message);
+        console.error('🔴 DEBUG: Error stack:', err.stack);
       }
+    } else {
+      console.warn('⚠️ DEBUG: No interviewerid in vendor record');
     }
+    console.log('🔍 DEBUG: Final interviewerName:', interviewerName);
 
     console.log('✅ Interview found:', {
       vendorId: vendor._id,

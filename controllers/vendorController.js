@@ -396,9 +396,9 @@ exports.notifyVendorSlots = async (req, res) => {
     await vendor.save();
 
     // prepare message and send via Meta WhatsApp Cloud API
-    const baseUrl = 'https://join.astrovaani.com'; // Production URL
+    const baseUrl = 'https://astrovaani-web-fe.vercel.app'; // TEST URL
     // Use new React interview page instead of PHP
-    const link = `${baseUrl}/interview?code=${interviewCode}`;
+    const link = baseUrl;
     const name = (vendor.name || '').trim();
     
     // Allow test phone number override from request body
@@ -896,6 +896,19 @@ exports.selectInterviewSlot = async (req, res) => {
       }
     })();
 
+    // Fetch interviewer name for response
+    let interviewerName = 'Our Team';
+    if (vendor.interviewerid) {
+      try {
+        const admin = await Admin.findById(vendor.interviewerid).select('name');
+        if (admin) {
+          interviewerName = admin.name;
+        }
+      } catch (err) {
+        console.error('Error fetching interviewer name for response:', err.message);
+      }
+    }
+
     res.json({
       success: true,
       message: 'Interview slot confirmed successfully!',
@@ -910,6 +923,7 @@ exports.selectInterviewSlot = async (req, res) => {
         email: vendor.email,
         phone: vendor.phone
       },
+      interviewerName: interviewerName,
       removedSlots: unselectedSlots.length
     });
 
@@ -1179,7 +1193,7 @@ exports.notifyVendor = async (req, res) => {
       }
       
       const metaUrl = `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`;
-      const interviewLink = `https://join.astrovaani.com/interview?code=${vendor.interviewcode}`;
+      const interviewLink = 'https://astrovaani-web-fe.vercel.app';
       
       const payload = {
         messaging_product: "whatsapp",
@@ -1308,8 +1322,8 @@ exports.sendReminder = async (req, res) => {
     }
 
     // Send WhatsApp reminder with interview link
-    const baseUrl = 'https://join.astrovaani.com';
-    const interviewLink = `${baseUrl}/interview?code=${vendor.interviewcode}`;
+    const baseUrl = 'https://astrovaani-web-fe.vercel.app';
+    const interviewLink = baseUrl;
     
     const name = (vendor.name || '').trim();
     const mobile = getVendorWhatsAppNumber(vendor);
@@ -1354,7 +1368,7 @@ exports.sendReminder = async (req, res) => {
       
       // Get interview code from vendor
       const interviewCode = vendor.interviewcode;
-      const interviewLink = `https://join.astrovaani.com/interview?code=${interviewCode}`;
+      const interviewLink = 'https://astrovaani-web-fe.vercel.app';
 
       if (!apiKey) {
         console.error('❌ ICONIC_API_KEY not found in .env');
@@ -1482,6 +1496,15 @@ exports.scheduleInterview = async (req, res) => {
     // Add new schedules
     vendor.schedules = processedSchedules;
 
+    // Save the admin ID as the interviewer
+    if (req.admin && req.admin._id) {
+      vendor.interviewerid = req.admin._id;
+      console.log('✅ Setting interviewer:', {
+        interviewerId: req.admin._id,
+        interviewerName: req.admin.name
+      });
+    }
+
     await vendor.save();
 
     console.log('✅ Interview scheduled:', {
@@ -1492,8 +1515,8 @@ exports.scheduleInterview = async (req, res) => {
     });
 
     // Send WhatsApp notification with interview link
-    const baseUrl = 'https://join.astrovaani.com'; // Production URL
-    const interviewLink = `${baseUrl}/interview?code=${vendor.interviewcode}`;
+    const baseUrl = 'https://astrovaani-web-fe.vercel.app'; // TEST URL
+    const interviewLink = baseUrl;
     
     // Prepare vendor contact details for WhatsApp
     const name = (vendor.name || '').trim();
@@ -1523,7 +1546,7 @@ exports.scheduleInterview = async (req, res) => {
     if (whatsappNumber) {
       const { sendWhatsApp } = require('../utils/whatsappService');
       const templateName = 'vendor_interview_notification_';
-      const interviewLink = `https://join.astrovaani.com/interview?code=${vendor.interviewcode}`;
+      const interviewLink = 'https://astrovaani-web-fe.vercel.app';
       const templateVars = [vendor.name, `Your interview has been scheduled! Click here to book your slot: ${interviewLink}`];
       const message = JSON.stringify(templateVars);
       (async () => {

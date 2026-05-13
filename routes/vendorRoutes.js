@@ -2,6 +2,7 @@ const express = require('express');
 const vendorController = require('../controllers/vendorController');
 const upload = require('../middleware/uploadMiddleware');
 const agreementUpload = require('../middleware/agreementUploadMiddleware');
+const adminAuth = require('../middleware/adminAuth');
 
 const router = express.Router();
 
@@ -92,8 +93,8 @@ router.post('/:id/notify', vendorController.notifyVendor);
 // POST /api/vendors/:id/reminder - Send reminder to select slot (for pending)
 router.post('/:id/reminder', vendorController.sendReminder);
 
-// POST /api/vendors/:id/schedule - Schedule interview slots
-router.post('/:id/schedule', vendorController.scheduleInterview);
+// POST /api/vendors/:id/schedule - Schedule interview slots (admin protected)
+router.post('/:id/schedule', adminAuth, vendorController.scheduleInterview);
 
 // POST /api/vendors/:id/cancel-interview - Cancel interview
 router.post('/:id/cancel-interview', vendorController.cancelInterview);

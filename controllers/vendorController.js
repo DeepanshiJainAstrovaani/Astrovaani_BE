@@ -845,8 +845,9 @@ exports.selectInterviewSlot = async (req, res) => {
     const confirmedSlot = vendor.schedules[0];
     confirmedSlot.status = 'confirmed';
 
-    // Update vendor onboarding status
+    // Update vendor onboarding status and move to "In Process" tab
     vendor.onboardingstatus = 'interview scheduled';
+    vendor.status = 'inprocess'; // This moves vendor to "In Process" tab in admin dashboard
 
     await vendor.save();
 

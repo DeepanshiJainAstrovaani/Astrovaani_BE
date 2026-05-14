@@ -372,9 +372,16 @@ exports.notifyVendorSlots = async (req, res) => {
     
     console.log('✅ Vendor found:', vendor.name);
 
-    // Optionally set interviewer id if provided from frontend/admin
+    // Set interviewer id if provided from frontend/admin
     const adminId = (req.body && req.body.adminId) ? String(req.body.adminId) : null;
-    if (adminId) vendor.interviewerid = adminId;
+    console.log('🔍 DEBUG: adminId from request body:', adminId);
+    
+    if (adminId) {
+      vendor.interviewerid = adminId;
+      console.log('✅ Interviewer ID set to:', adminId);
+    } else {
+      console.warn('⚠️ No adminId provided in request body - interviewerid will not be set');
+    }
 
     // generate interview code
     const len = 10;
@@ -1135,16 +1142,21 @@ exports.notifyVendor = async (req, res) => {
       });
     }
     
-    // Set interviewer id if provided from request
-    const adminId = (req.body && req.body.adminId) ? String(req.body.adminId) : null;
-    if (adminId) {
-      vendor.interviewerid = adminId;
-      console.log('✅ Interviewer ID set to:', adminId);
-    }
-    
     console.log('✅ Vendor found:', vendor.name);
     console.log('   Interview code:', vendor.interviewcode);
     console.log('   Schedules:', vendor.schedules?.length || 0);
+
+    // Set interviewer id if provided from frontend/admin (fallback if not set in notifyVendorSlots)
+    const adminId = (req.body && req.body.adminId) ? String(req.body.adminId) : null;
+    if (adminId && !vendor.interviewerid) {
+      vendor.interviewerid = adminId;
+      console.log('✅ Interviewer ID set to:', adminId);
+      await vendor.save();
+    } else if (adminId) {
+      console.log('ℹ️ Interviewer ID already set to:', vendor.interviewerid);
+    } else {
+      console.log('ℹ️ No adminId provided for setting interviewer');
+    }
 
     // Check if vendor has interview code (required for sending link)
     if (!vendor.interviewcode) {
@@ -1152,12 +1164,6 @@ exports.notifyVendor = async (req, res) => {
         success: false,
         message: 'No interview code found for this vendor' 
       });
-    }
-
-    // Save vendor if interviewerid was updated
-    if (adminId) {
-      await vendor.save();
-      console.log('✅ Vendor saved with new interviewer ID');
     }
 
     // Send WhatsApp notification reminder using template-based API

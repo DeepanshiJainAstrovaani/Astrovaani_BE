@@ -5,11 +5,13 @@ const nodemailer = require('nodemailer');
 const Admin = require('../models/Admin');
 
 const getVendorWhatsAppNumber = (vendor) => {
-  return (vendor?.whatsapp || '').replace(/\s+/g, '');
+  // Try WhatsApp number first, fallback to phone number
+  return (vendor?.whatsapp || vendor?.phone || '').replace(/\s+/g, '');
 };
 
 const getVendorWhatsAppTarget = (vendor, overrideNumber = null) => {
-  return (overrideNumber || getVendorWhatsAppNumber(vendor) || '').replace(/\s+/g, '');
+  // Try override, then WhatsApp, then phone, then empty
+  return (overrideNumber || vendor?.whatsapp || vendor?.phone || '').replace(/\s+/g, '');
 };
  
 // Get all vendors
@@ -163,52 +165,66 @@ exports.updateVendor = async (req, res) => {
     if (isInterviewFeedback && isApprovedForAgreement) {
       console.log('📱 Interview feedback approved - sending WhatsApp notification');
       const name = (vendor.name || '').trim();
+      // Use ONLY WhatsApp number (priority), phone is fallback only
       const whatsappNumber = (vendor.whatsapp || '').replace(/\s+/g, '');
+      const phoneNumber = (vendor.phone || '').replace(/\s+/g, '');
 
-      if (whatsappNumber) {
-        // Use centralized WhatsApp service
-        const { sendWhatsApp } = require('../utils/whatsappService');
-        const templateName = 'vendor_interview_completed';
-        const templateVars = [name];
-        const message = JSON.stringify(templateVars); // If your template expects JSON variables
-
-        // Send WhatsApp notification in background (don't block response)
-        (async () => {
-          try {
-            const result = await sendWhatsApp(whatsappNumber, message, { templateName });
-            if (result.success) {
-              await MessageNotification.create({
-                vendorId: vendor._id,
-                type: 'whatsapp',
-                payload: { mobile: whatsappNumber, templateName, variables: templateVars },
-                status: 'sent',
-                providerResponse: result.response
-              });
-              console.log('✅ Interview feedback notification sent successfully!');
-            } else {
-              await MessageNotification.create({
-                vendorId: vendor._id,
-                type: 'whatsapp',
-                payload: { mobile: whatsappNumber, templateName, variables: templateVars },
-                status: 'failed',
-                error: result.error
-              });
-              console.warn('⚠️ WhatsApp API returned non-success status:', result.error);
-            }
-          } catch (waErr) {
-            console.error('❌ WhatsApp send error:', waErr.message);
+      const tryNotification = async (number, numberType) => {
+        if (!number) return null;
+        try {
+          const { sendWhatsApp } = require('../utils/whatsappService');
+          const templateName = 'vendor_interview_completed';
+          const templateVars = [name];
+          const message = JSON.stringify(templateVars);
+          const result = await sendWhatsApp(number, message, { templateName });
+          if (result.success) {
             await MessageNotification.create({
               vendorId: vendor._id,
               type: 'whatsapp',
-              payload: { mobile: whatsappNumber, templateName },
-              status: 'failed',
-              error: waErr.message
+              payload: { mobile: number, templateName, variables: templateVars },
+              status: 'sent',
+              providerResponse: result.response
             });
+            console.log(`✅ Interview feedback notification sent successfully via ${numberType}!`);
+            return true;
+          } else {
+            await MessageNotification.create({
+              vendorId: vendor._id,
+              type: 'whatsapp',
+              payload: { mobile: number, templateName, variables: templateVars },
+              status: 'failed',
+              error: result.error
+            });
+            console.warn(`⚠️ WhatsApp API returned non-success status via ${numberType}:`, result.error);
+            return false;
           }
-        })();
-      } else {
-        console.warn('⚠️ No WhatsApp number found - skipping WhatsApp notification');
-      }
+        } catch (err) {
+          console.warn(`⚠️ Failed to send via ${numberType}:`, err.message);
+          return false;
+        }
+      };
+
+      // Send WhatsApp notification in background (don't block response)
+      (async () => {
+        try {
+          // Try WhatsApp number first
+          if (whatsappNumber) {
+            const sent = await tryNotification(whatsappNumber, 'WhatsApp number');
+            if (sent) return;
+          }
+
+          // Fallback to phone number if available
+          if (phoneNumber) {
+            const sent = await tryNotification(phoneNumber, 'phone number');
+            if (sent) return;
+          }
+
+          // Both failed or unavailable
+          console.warn('⚠️ No valid WhatsApp/phone number found - skipping WhatsApp notification');
+        } catch (err) {
+          console.error('❌ Error in notification flow:', err.message);
+        }
+      })();
     }
     
     res.json(vendor);
@@ -884,17 +900,55 @@ exports.selectInterviewSlot = async (req, res) => {
         });
 
         const { sendWhatsApp } = require('../utils/whatsappService');
-        const whatsappNumber = (vendor.whatsapp || vendor.phone || '').replace(/\s+/g, '');
+        // Use ONLY WhatsApp number (priority), phone is fallback only
+        const whatsappNumber = (vendor.whatsapp || '').replace(/\s+/g, '');
+        const phoneNumber = (vendor.phone || '').replace(/\s+/g, '');
 
         if (whatsappNumber) {
-          const result = await sendWhatsApp(whatsappNumber, JSON.stringify(templateVars), { 
-            templateName: 'notification'
-          });
+          try {
+            const result = await sendWhatsApp(whatsappNumber, JSON.stringify(templateVars), { 
+              templateName: 'notification'
+            });
 
-          console.log('✅ WhatsApp notification sent:', {
-            success: result.success,
-            provider: result.provider
-          });
+            console.log('✅ WhatsApp notification sent via WhatsApp number:', {
+              success: result.success,
+              provider: result.provider
+            });
+          } catch (whatsappErr) {
+            console.warn('⚠️ Failed to send via WhatsApp number, trying phone number:', whatsappErr.message);
+            // Fallback to phone number if WhatsApp number fails
+            if (phoneNumber) {
+              try {
+                const result = await sendWhatsApp(phoneNumber, JSON.stringify(templateVars), { 
+                  templateName: 'notification'
+                });
+                console.log('✅ WhatsApp notification sent via phone number (fallback):', {
+                  success: result.success,
+                  provider: result.provider
+                });
+              } catch (phoneErr) {
+                console.error('❌ Failed to send notification via both numbers:', {
+                  whatsappError: whatsappErr.message,
+                  phoneError: phoneErr.message
+                });
+              }
+            } else {
+              console.error('❌ No fallback phone number available:', whatsappErr.message);
+            }
+          }
+        } else if (phoneNumber) {
+          try {
+            const result = await sendWhatsApp(phoneNumber, JSON.stringify(templateVars), { 
+              templateName: 'notification'
+            });
+
+            console.log('✅ WhatsApp notification sent via phone number:', {
+              success: result.success,
+              provider: result.provider
+            });
+          } catch (err) {
+            console.error('❌ Error sending WhatsApp notification:', err.message);
+          }
         } else {
           console.warn('⚠️ No WhatsApp/phone number available for vendor:', vendor._id);
         }
@@ -1561,7 +1615,7 @@ exports.scheduleInterview = async (req, res) => {
     });
 
     // Send WhatsApp notification asynchronously (don't block response)
-    const whatsappNumber = (vendor.whatsapp || '').replace(/\s+/g, '');
+    const whatsappNumber = mobile; // Use the already-normalized number with fallback
     if (whatsappNumber) {
       const { sendWhatsApp } = require('../utils/whatsappService');
       const templateName = 'vendor_interview_notification_';

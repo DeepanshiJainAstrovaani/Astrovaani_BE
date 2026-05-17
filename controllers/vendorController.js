@@ -849,6 +849,9 @@ exports.selectInterviewSlot = async (req, res) => {
     vendor.onboardingstatus = 'interview scheduled';
     vendor.status = 'inprocess'; // This moves vendor to "In Process" tab in admin dashboard
 
+    // Mark schedules as modified to ensure Mongoose detects the change
+    vendor.markModified('schedules');
+    
     await vendor.save();
 
     console.log('✅ Slot confirmed successfully:', {
@@ -1568,6 +1571,13 @@ exports.scheduleInterview = async (req, res) => {
 
     // Add new schedules
     vendor.schedules = processedSchedules;
+
+    // Set status to 'pending' if not already scheduled
+    // Only set to 'pending' if vendor hasn't already confirmed a slot
+    const hasConfirmedSlot = vendor.schedules && vendor.schedules.some(s => s.status === 'confirmed');
+    if (!hasConfirmedSlot && vendor.onboardingstatus !== 'interview scheduled') {
+      vendor.status = 'pending'; // Mark as pending interview selection
+    }
 
     // Save the admin ID as the interviewer
     if (req.admin && req.admin._id) {

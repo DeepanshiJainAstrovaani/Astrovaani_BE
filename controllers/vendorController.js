@@ -845,9 +845,9 @@ exports.selectInterviewSlot = async (req, res) => {
     const confirmedSlot = vendor.schedules[0];
     confirmedSlot.status = 'confirmed';
 
-    // Update vendor onboarding status and move to "In Process" tab
+    // Update vendor onboarding status - interview is now scheduled
     vendor.onboardingstatus = 'interview scheduled';
-    vendor.status = 'inprocess'; // This moves vendor to "In Process" tab in admin dashboard
+    // Don't change status here - keep it as is (pending/inreview) so it shows in Interviews menu
 
     // Mark schedules as modified to ensure Mongoose detects the change
     vendor.markModified('schedules');

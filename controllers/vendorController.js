@@ -2038,7 +2038,7 @@ exports.onboardVendor = async (req, res) => {
       try {
         const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
         const apiKey = process.env.ICONIC_API_KEY;
-        const templateName = 'vendor_onboarded_';
+        const templateName = 'informative';
 
         if (!apiKey) {
           console.error('❌ ICONIC_API_KEY not found in .env');
@@ -2047,7 +2047,6 @@ exports.onboardVendor = async (req, res) => {
 
         console.log('🔄 Sending WhatsApp via template:', templateName);
         console.log('   Mobile:', mobileFormatted);
-        console.log('   Variables:', name);
         
         const FormData = require('form-data');
         const formData = new FormData();
@@ -2055,8 +2054,18 @@ exports.onboardVendor = async (req, res) => {
         formData.append('mobile', mobileFormatted);
         formData.append('templatename', templateName);
         
-        // Template variable: vendor name (as plain string, not array)
-        formData.append('dvariables', name);
+        // Template variables for 3-part message
+        const variables = [
+          name, // Var 1: Vendor name
+          'We are pleased to inform you that your joining application has been successfully approved.', // Var 2: Approval message
+          'Now book a time slot to schedule your interview.' // Var 3: Action message
+        ];
+        console.log('   Variables:', variables);
+        
+        // Append each variable
+        variables.forEach((variable, index) => {
+          formData.append(`dvariables`, variable);
+        });
 
         const response = await axios.post(whatsappApiUrl, formData, {
           headers: formData.getHeaders(),

@@ -169,19 +169,22 @@ exports.updateVendor = async (req, res) => {
       const whatsappNumber = (vendor.whatsapp || '').replace(/\s+/g, '');
       const phoneNumber = (vendor.phone || '').replace(/\s+/g, '');
 
-      const tryNotification = async (number, numberType) => {
+      const c = async (number, numberType) => {
         if (!number) return null;
         try {
           const { sendWhatsApp } = require('../utils/whatsappService');
-          const templateName = 'vendor_interview_completed';
-          const templateVars = [name];
-          const message = JSON.stringify(templateVars);
-          const result = await sendWhatsApp(number, message, { templateName });
+          const templateName = 'info';
+          const templateParams = [
+            name + ', your interview round has been completed.',
+            'After your performance review you will get the update shortly regarding your onboarding.',
+            'Thanks for the patience!'
+          ];
+          const result = await sendWhatsApp(number, '', { templateName, templateParams });
           if (result.success) {
             await MessageNotification.create({
               vendorId: vendor._id,
               type: 'whatsapp',
-              payload: { mobile: number, templateName, variables: templateVars },
+              payload: { mobile: number, templateName, variables: templateParams },
               status: 'sent',
               providerResponse: result.response
             });
@@ -191,7 +194,7 @@ exports.updateVendor = async (req, res) => {
             await MessageNotification.create({
               vendorId: vendor._id,
               type: 'whatsapp',
-              payload: { mobile: number, templateName, variables: templateVars },
+              payload: { mobile: number, templateName, variables: templateParams },
               status: 'failed',
               error: result.error
             });
@@ -865,7 +868,7 @@ exports.selectInterviewSlot = async (req, res) => {
     (async () => {
       try {
         // Fetch interviewer name
-        let interviewerName = 'Our Team';
+        let interviewerName = 'Astrovaani Team';
         if (vendor.interviewerid) {
           try {
             const admin = await Admin.findById(vendor.interviewerid).select('name');
@@ -961,7 +964,7 @@ exports.selectInterviewSlot = async (req, res) => {
     })();
 
     // Fetch interviewer name for response
-    let interviewerName = 'Our Team';
+    let interviewerName = 'Astrovaani Team';
     if (vendor.interviewerid) {
       try {
         const admin = await Admin.findById(vendor.interviewerid).select('name');
@@ -1036,7 +1039,6 @@ exports.sendMeetingLink = async (req, res) => {
     await vendor.save();
 
     // Prepare WhatsApp message
-    const name = (vendor.name || '').trim();
     const mobile = getVendorWhatsAppNumber(vendor);
     
     if (!mobile) {
@@ -1070,10 +1072,38 @@ exports.sendMeetingLink = async (req, res) => {
     let whatsappResponse = null;
 
     try {
+      // Get scheduled date/time from confirmed slot
+      const confirmSlot = vendor.schedules.find(s => s._id.toString() === slotId);
+      let formattedDateTime = 'TBD';
+      if (confirmSlot && confirmSlot.scheduledAt) {
+        const scheduledDate = new Date(confirmSlot.scheduledAt);
+        formattedDateTime = scheduledDate.toLocaleString('en-GB', {
+          day: '2-digit',
+          month: 'long',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        });
+      }
+
+      // Fetch interviewer name
+      let interviewerName = 'Astrovaani Team';
+      if (vendor.interviewerid) {
+        try {
+          const admin = await Admin.findById(vendor.interviewerid).select('name');
+          if (admin) {
+            interviewerName = admin.name;
+          }
+        } catch (err) {
+          console.error('Error fetching interviewer name:', err.message);
+        }
+      }
+
       console.log('🔄 Sending Meeting Link via Meta WhatsApp Cloud API');
       console.log('   Mobile:', mobileFormatted);
-      console.log('   Vendor Name:', name);
-      console.log('   Meeting Link:', meetingLink);
+      console.log('   Date/Time:', formattedDateTime);
+      console.log('   Interviewer:', interviewerName);
       
       const phoneNumberId = process.env.META_WHATSAPP_PHONE_NUMBER_ID;
       const accessToken = process.env.META_WHATSAPP_ACCESS_TOKEN;
@@ -1089,7 +1119,7 @@ exports.sendMeetingLink = async (req, res) => {
         to: mobileFormatted,
         type: "template",
         template: {
-          name: "vendor_meeting_link_simple",
+          name: "vendor_meeting_link_notification",
           language: {
             code: "en"
           },
@@ -1099,11 +1129,11 @@ exports.sendMeetingLink = async (req, res) => {
               parameters: [
                 {
                   type: "text",
-                  text: name
+                  text: formattedDateTime
                 },
                 {
                   type: "text",
-                  text: meetingLink
+                  text: interviewerName
                 }
               ]
             }
@@ -1114,7 +1144,7 @@ exports.sendMeetingLink = async (req, res) => {
       console.log('📤 Sending to Meta API:', metaUrl);
       console.log('   - To:', mobileFormatted);
       console.log('   - Template:', payload.template.name);
-      console.log('   - Variables:', [name, meetingLink]);
+      console.log('   - Variables:', [formattedDateTime, interviewerName]);
 
       const response = await axios.post(metaUrl, payload, {
         headers: {
@@ -1710,7 +1740,7 @@ exports.cancelInterview = async (req, res) => {
         try {
           const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
           const apiKey = process.env.ICONIC_API_KEY;
-          const templateName = 'vendor_rejected_no_response';
+          const templateName = 'info';
 
           if (!apiKey) {
             console.error('❌ ICONIC_API_KEY not found in .env');
@@ -1719,7 +1749,6 @@ exports.cancelInterview = async (req, res) => {
 
           console.log('🔄 Sending rejection WhatsApp via template:', templateName);
           console.log('   Mobile:', mobileFormatted);
-          console.log('   Variables:', [name]);
           
           const FormData = require('form-data');
           const formData = new FormData();
@@ -1727,9 +1756,18 @@ exports.cancelInterview = async (req, res) => {
           formData.append('mobile', mobileFormatted);
           formData.append('templatename', templateName);
           
-          // Template variables: vendor name
-          const templateVars = [name];
-          formData.append('dvariables', JSON.stringify(templateVars));
+          // Template variables: 3-part message
+          const templateVars = [
+            name + ', your interview has been cancelled due to your non availability.',
+            'Don\'t worry! You will receive the link shortly to reschedule your interview.',
+            'Please be available on time otherwise your application will be rejected.'
+          ];
+          console.log('   Variables:', templateVars);
+          
+          // Append each variable
+          templateVars.forEach((variable) => {
+            formData.append('dvariables', variable);
+          });
 
           const response = await axios.post(whatsappApiUrl, formData, {
             headers: formData.getHeaders(),
@@ -1774,7 +1812,7 @@ exports.cancelInterview = async (req, res) => {
           await Notification.create({ 
             vendorId: vendor._id, 
             type: 'whatsapp', 
-            payload: { mobile: mobileFormatted, templateName: 'vendor_rejected_no_response' }, 
+            payload: { mobile: mobileFormatted, templateName: 'info' }, 
             status: 'failed', 
             error: errDetail
           });

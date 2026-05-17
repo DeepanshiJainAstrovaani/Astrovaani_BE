@@ -149,8 +149,8 @@ exports.updateVendor = async (req, res) => {
       vendorData.callstatus = 'offline';
     }
 
-    // Check if this is an interview feedback submission
-    const isInterviewFeedback = vendorData.interviewRating && vendorData.onboardingstatus;
+    // Check if this is an interview feedback submission (check for rating fields: skillsRating, communicationRating, or adaptability)
+    const isInterviewFeedback = (vendorData.skillsRating || vendorData.communicationRating || vendorData.adaptability) && vendorData.onboardingstatus;
     const isApprovedForAgreement = vendorData.onboardingstatus === 'inprocess';
 
     const vendor = await vendorModel.updateVendor(vendorId, vendorData);

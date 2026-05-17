@@ -56,6 +56,9 @@ exports.getAllVendors = async () => {
       agree: 1,
       whatsapp: 1,
       phone: 1,
+      schedules: 1,
+      interviewcode: 1,
+      interviewerid: 1,
       id: 1
     };
 

@@ -169,7 +169,7 @@ exports.updateVendor = async (req, res) => {
       const whatsappNumber = (vendor.whatsapp || '').replace(/\s+/g, '');
       const phoneNumber = (vendor.phone || '').replace(/\s+/g, '');
 
-      const c = async (number, numberType) => {
+      const sendNotification = async (number, numberType) => {
         if (!number) return null;
         try {
           const { sendWhatsApp } = require('../utils/whatsappService');
@@ -212,13 +212,13 @@ exports.updateVendor = async (req, res) => {
         try {
           // Try WhatsApp number first
           if (whatsappNumber) {
-            const sent = await tryNotification(whatsappNumber, 'WhatsApp number');
+            const sent = await sendNotification(whatsappNumber, 'WhatsApp number');
             if (sent) return;
           }
 
           // Fallback to phone number if available
           if (phoneNumber) {
-            const sent = await tryNotification(phoneNumber, 'phone number');
+            const sent = await sendNotification(phoneNumber, 'phone number');
             if (sent) return;
           }
 
@@ -1776,70 +1776,97 @@ exports.cancelInterview = async (req, res) => {
     
     if (mobile) {
       // Normalize mobile to include country code
+      const normalizeMobile = (raw) => {
+        if (!raw) return raw;
+        let digits = raw.replace(/[^0-9]/g, '');
+        if (digits.length === 10) digits = '91' + digits;
+        if (digits.length === 11 && digits.startsWith('0')) digits = '91' + digits.slice(1);
+        return digits;
+      };
+      
+      const mobileFormatted = normalizeMobile(mobile);
+      
       const sendRejectionNotification = async () => {
         try {
-          const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
-          const apiKey = process.env.ICONIC_API_KEY;
-          const templateName = 'info';
-
-          if (!apiKey) {
-            console.error('❌ ICONIC_API_KEY not found in .env');
+          const phoneNumberId = process.env.META_WHATSAPP_PHONE_NUMBER_ID;
+          const accessToken = process.env.META_WHATSAPP_ACCESS_TOKEN;
+          
+          if (!phoneNumberId || !accessToken) {
+            console.error('❌ META_WHATSAPP_PHONE_NUMBER_ID or META_WHATSAPP_ACCESS_TOKEN not found in .env');
             return;
           }
 
-          console.log('🔄 Sending rejection WhatsApp via template:', templateName);
-          console.log('   Mobile:', mobileFormatted);
+          const metaUrl = `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`;
           
-          const FormData = require('form-data');
-          const formData = new FormData();
-          formData.append('apikey', apiKey);
-          formData.append('mobile', mobileFormatted);
-          formData.append('templatename', templateName);
+          // Build the message with 3 variables for 'information' template
+          const cancellationMessage = name + ', your interview has been cancelled due to your non availability.';
+          const rescheduleMessage = 'Don\'t worry! You will receive the link shortly to reschedule your interview.';
+          const warningMessage = 'Please be available on time otherwise your application will be rejected.';
           
-          // Template variables: 3-part message
-          const templateVars = [
-            name + ', your interview has been cancelled due to your non availability.',
-            'Don\'t worry! You will receive the link shortly to reschedule your interview.',
-            'Please be available on time otherwise your application will be rejected.'
-          ];
-          console.log('   Variables:', templateVars);
+          const payload = {
+            messaging_product: "whatsapp",
+            to: mobileFormatted,
+            type: "template",
+            template: {
+              name: "information",
+              language: {
+                code: "en"
+              },
+              components: [
+                {
+                  type: "body",
+                  parameters: [
+                    {
+                      type: "text",
+                      text: cancellationMessage
+                    },
+                    {
+                      type: "text",
+                      text: rescheduleMessage
+                    },
+                    {
+                      type: "text",
+                      text: warningMessage
+                    }
+                  ]
+                }
+              ]
+            }
+          };
           
-          // Append each variable
-          templateVars.forEach((variable) => {
-            formData.append('dvariables', variable);
-          });
-
-          const response = await axios.post(whatsappApiUrl, formData, {
-            headers: formData.getHeaders(),
+          console.log('📤 Sending cancellation notification to Meta API:', metaUrl);
+          console.log('   - To:', mobileFormatted);
+          console.log('   - Template:', payload.template.name);
+          console.log('📋 Full Payload:', JSON.stringify(payload, null, 2));
+          
+          const sendRes = await axios.post(metaUrl, payload, { 
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            },
             timeout: 30000
           });
-
-          const whatsappResponse = response.data;
-          console.log('✅ WhatsApp API Response:', JSON.stringify(whatsappResponse, null, 2));
           
-          if (whatsappResponse && (
-            whatsappResponse.status === 'success' || 
-            whatsappResponse.success === true ||
-            whatsappResponse.statuscode === 200 ||
-            whatsappResponse.statuscode === 2000 ||
-            whatsappResponse.statusCode === 200
-          )) {
-            console.log('✅ Rejection notification sent successfully!');
+          const whatsappResponse = sendRes.data;
+          console.log('✅ Meta WhatsApp API Response:', JSON.stringify(whatsappResponse, null, 2));
+          
+          if (whatsappResponse && whatsappResponse.messages && whatsappResponse.messages.length > 0) {
+            console.log('✅ Cancellation notification sent successfully!');
             
             // Log notification
-            await Notification.create({ 
+            await MessageNotification.create({ 
               vendorId: vendor._id, 
               type: 'whatsapp', 
-              payload: { mobile: mobileFormatted, templateName, variables: templateVars }, 
+              payload: { mobile: mobileFormatted, templateName: 'information', variables: [cancellationMessage, rescheduleMessage, warningMessage] }, 
               status: 'sent', 
               providerResponse: whatsappResponse
             });
           } else {
             console.warn('⚠️ WhatsApp API returned non-success status:', whatsappResponse);
-            await Notification.create({ 
+            await MessageNotification.create({ 
               vendorId: vendor._id, 
               type: 'whatsapp', 
-              payload: { mobile: mobileFormatted, templateName, variables: templateVars }, 
+              payload: { mobile: mobileFormatted, templateName: 'information' }, 
               status: 'failed', 
               error: whatsappResponse
             });
@@ -1849,10 +1876,10 @@ exports.cancelInterview = async (req, res) => {
           console.error('❌ WhatsApp send error:', JSON.stringify(errDetail, null, 2));
           
           // Log failed notification
-          await Notification.create({ 
+          await MessageNotification.create({ 
             vendorId: vendor._id, 
             type: 'whatsapp', 
-            payload: { mobile: mobileFormatted, templateName: 'info' }, 
+            payload: { mobile: mobileFormatted, templateName: 'information' }, 
             status: 'failed', 
             error: errDetail
           });

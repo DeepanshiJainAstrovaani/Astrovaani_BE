@@ -1458,80 +1458,102 @@ exports.sendReminder = async (req, res) => {
       phone: mobileFormatted
     });
 
-    // Send WhatsApp message via 'info' template
+    // Send WhatsApp message via Meta WhatsApp Cloud API with 'information' template
     let whatsappSent = false;
     let whatsappResponse = null;
 
-    const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
-    const apiKey = process.env.ICONIC_API_KEY;
-    const templateName = 'info';
-
-    if (!apiKey) {
-      console.error('❌ ICONIC_API_KEY not found in .env');
-    } else {
-      try {
-        console.log('🔄 Sending interview reminder via template:', templateName);
-        console.log('   Mobile:', mobileFormatted);
-        console.log('   Vendor Name:', name);
-        
-        // Get first scheduled slot to extract date and time
-        const firstSlot = vendor.schedules && vendor.schedules.length > 0 ? vendor.schedules[0] : null;
-        let dateTimeStr = 'TBD';
-        if (firstSlot && firstSlot.scheduledAt) {
-          const slotDate = new Date(firstSlot.scheduledAt);
-          dateTimeStr = slotDate.toLocaleString('en-IN', { 
-            year: 'numeric', 
-            month: 'long', 
-            day: 'numeric', 
-            hour: '2-digit', 
-            minute: '2-digit'
-          });
-        }
-        
-        const FormData = require('form-data');
-        const formData = new FormData();
-        formData.append('apikey', apiKey);
-        formData.append('mobile', mobileFormatted);
-        formData.append('templatename', templateName);
-        
-        // Template variables: 3-part message (info template format)
-        const templateVars = [
-          name + ', this is an official reminder about your upcoming interview. Please be available at the scheduled time.',
-          'Date and time: ' + dateTimeStr,
-          'Meeting link will be shared with you shortly.'
-        ];
-        console.log('   Variables:', templateVars);
-        
-        // Append each variable
-        templateVars.forEach((variable) => {
-          formData.append('dvariables', variable);
-        });
-
-        const response = await axios.post(whatsappApiUrl, formData, {
-          headers: formData.getHeaders(),
-          timeout: 30000
-        });
-
-        whatsappResponse = response.data;
-        console.log('✅ WhatsApp API Response:', JSON.stringify(whatsappResponse, null, 2));
-        
-        if (whatsappResponse && (
-          whatsappResponse.status === 'success' || 
-          whatsappResponse.success === true ||
-          whatsappResponse.statuscode === 200 ||
-          whatsappResponse.statuscode === 2000 ||
-          whatsappResponse.statusCode === 200
-        )) {
-          whatsappSent = true;
-          console.log('✅ Interview reminder sent successfully!');
-        } else {
-          console.warn('⚠️ WhatsApp API returned non-success status:', whatsappResponse);
-        }
-      } catch (waErr) {
-        const errDetail = waErr?.response?.data || { message: waErr.message, code: waErr.code };
-        console.error('❌ WhatsApp send error:', JSON.stringify(errDetail, null, 2));
-        whatsappResponse = errDetail;
+    try {
+      console.log('🔄 Sending interview reminder via Meta WhatsApp Cloud API');
+      console.log('   Mobile:', mobileFormatted);
+      console.log('   Vendor Name:', name);
+      
+      const phoneNumberId = process.env.META_WHATSAPP_PHONE_NUMBER_ID;
+      const accessToken = process.env.META_WHATSAPP_ACCESS_TOKEN;
+      
+      if (!phoneNumberId || !accessToken) {
+        throw new Error('Meta WhatsApp credentials not configured');
       }
+      
+      const metaUrl = `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`;
+      
+      // Get first scheduled slot to extract date and time
+      const firstSlot = vendor.schedules && vendor.schedules.length > 0 ? vendor.schedules[0] : null;
+      let dateTimeStr = 'TBD';
+      if (firstSlot && firstSlot.scheduledAt) {
+        const slotDate = new Date(firstSlot.scheduledAt);
+        dateTimeStr = slotDate.toLocaleString('en-IN', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric', 
+          hour: '2-digit', 
+          minute: '2-digit'
+        });
+      }
+      
+      // Build the message with 3 variables for 'information' template
+      const reminderMessage = name + ', this is an official reminder about your upcoming interview. Please be available at the scheduled time.';
+      const dateMessage = 'Date and time: ' + dateTimeStr;
+      const linkMessage = 'Meeting link will be shared with you shortly.';
+      
+      const payload = {
+        messaging_product: "whatsapp",
+        to: mobileFormatted,
+        type: "template",
+        template: {
+          name: "information",
+          language: {
+            code: "en"
+          },
+          components: [
+            {
+              type: "body",
+              parameters: [
+                {
+                  type: "text",
+                  text: reminderMessage
+                },
+                {
+                  type: "text",
+                  text: dateMessage
+                },
+                {
+                  type: "text",
+                  text: linkMessage
+                }
+              ]
+            }
+          ]
+        }
+      };
+      
+      console.log('📤 Sending to Meta API:', metaUrl);
+      console.log('   - Phone Number ID:', phoneNumberId);
+      console.log('   - To:', mobileFormatted);
+      console.log('   - Template:', payload.template.name);
+      console.log('   - Date/Time:', dateTimeStr);
+      console.log('📋 Full Payload:', JSON.stringify(payload, null, 2));
+      
+      const sendRes = await axios.post(metaUrl, payload, { 
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 30000
+      });
+      
+      whatsappResponse = sendRes.data;
+      console.log('✅ Meta WhatsApp API Response:', JSON.stringify(whatsappResponse, null, 2));
+      
+      if (whatsappResponse && whatsappResponse.messages && whatsappResponse.messages.length > 0) {
+        whatsappSent = true;
+        console.log('✅ Interview reminder sent successfully via Meta WhatsApp!');
+      } else {
+        console.warn('⚠️ WhatsApp API returned non-success status:', whatsappResponse);
+      }
+    } catch (waErr) {
+      const errDetail = waErr?.response?.data || { message: waErr.message, code: waErr.code };
+      console.error('❌ WhatsApp send error:', JSON.stringify(errDetail, null, 2));
+      whatsappResponse = errDetail;
     }
 
     res.json({

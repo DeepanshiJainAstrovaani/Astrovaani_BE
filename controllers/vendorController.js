@@ -1114,12 +1114,18 @@ exports.sendMeetingLink = async (req, res) => {
       
       const metaUrl = `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`;
       
+      // Prepare message variables for 'information' template
+      const name = (vendor.name || '').trim();
+      const reminderMessage = name + ', this is an official reminder about your upcoming interview. Please be available at the scheduled time.';
+      const dateMessage = 'Date and time: ' + formattedDateTime;
+      const linkMessage = 'Meeting link will be shared with you shortly.';
+      
       const payload = {
         messaging_product: "whatsapp",
         to: mobileFormatted,
         type: "template",
         template: {
-          name: "vendor_meeting_link_notification",
+          name: "information",
           language: {
             code: "en"
           },
@@ -1129,11 +1135,15 @@ exports.sendMeetingLink = async (req, res) => {
               parameters: [
                 {
                   type: "text",
-                  text: formattedDateTime
+                  text: reminderMessage
                 },
                 {
                   type: "text",
-                  text: interviewerName
+                  text: dateMessage
+                },
+                {
+                  type: "text",
+                  text: linkMessage
                 }
               ]
             }
@@ -1144,7 +1154,7 @@ exports.sendMeetingLink = async (req, res) => {
       console.log('📤 Sending to Meta API:', metaUrl);
       console.log('   - To:', mobileFormatted);
       console.log('   - Template:', payload.template.name);
-      console.log('   - Variables:', [formattedDateTime, interviewerName]);
+      console.log('   - Variables:', [reminderMessage, dateMessage, linkMessage]);
 
       const response = await axios.post(metaUrl, payload, {
         headers: {

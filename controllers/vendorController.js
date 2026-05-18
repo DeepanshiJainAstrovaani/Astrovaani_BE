@@ -1458,71 +1458,79 @@ exports.sendReminder = async (req, res) => {
       phone: mobileFormatted
     });
 
-    // Send WhatsApp message via template-based API
+    // Send WhatsApp message via 'info' template
     let whatsappSent = false;
     let whatsappResponse = null;
-    const isDummyMode = false;
 
-    if (isDummyMode) {
-      console.log('🧪 DUMMY MODE - Simulating WhatsApp send');
-      whatsappSent = true;
+    const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
+    const apiKey = process.env.ICONIC_API_KEY;
+    const templateName = 'info';
+
+    if (!apiKey) {
+      console.error('❌ ICONIC_API_KEY not found in .env');
     } else {
-      const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
-      const apiKey = process.env.ICONIC_API_KEY;
-      // Use new template with direct link
-      const templateName = 'vendor_slot_selection_link';
-      
-      // Get interview code from vendor
-      const interviewCode = vendor.interviewcode;
-      const interviewLink = `https://join.astrovaani.com/interview?code=${interviewCode}`;
-
-      if (!apiKey) {
-        console.error('❌ ICONIC_API_KEY not found in .env');
-      } else {
-        try {
-          console.log('🔄 Sending WhatsApp reminder via template (with direct link):', templateName);
-          console.log('   Mobile:', mobileFormatted);
-          console.log('   Vendor Name:', name);
-          console.log('   Interview Link:', interviewLink);
-          
-          const FormData = require('form-data');
-          const formData = new FormData();
-          
-          // Explicitly use /bytemplate endpoint
-          const whatsappApiUrlByTemplate = 'https://wa.iconicsolution.co.in/wapp/api/send/bytemplate';
-          
-          formData.append('apikey', apiKey);
-          formData.append('mobile', mobileFormatted);
-          formData.append('templatename', templateName);
-          formData.append('dvariables', `${name},${interviewLink}`);
-          
-          console.log('   Debug - dvariables:', `${name},${interviewLink}`);
-
-          const response = await axios.post(whatsappApiUrlByTemplate, formData, {
-            headers: formData.getHeaders(),
-            timeout: 30000
+      try {
+        console.log('🔄 Sending interview reminder via template:', templateName);
+        console.log('   Mobile:', mobileFormatted);
+        console.log('   Vendor Name:', name);
+        
+        // Get first scheduled slot to extract date and time
+        const firstSlot = vendor.schedules && vendor.schedules.length > 0 ? vendor.schedules[0] : null;
+        let dateTimeStr = 'TBD';
+        if (firstSlot && firstSlot.scheduledAt) {
+          const slotDate = new Date(firstSlot.scheduledAt);
+          dateTimeStr = slotDate.toLocaleString('en-IN', { 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric', 
+            hour: '2-digit', 
+            minute: '2-digit'
           });
-
-          whatsappResponse = response.data;
-          console.log('✅ WhatsApp API Response:', JSON.stringify(whatsappResponse, null, 2));
-          
-          if (whatsappResponse && (
-            whatsappResponse.status === 'success' || 
-            whatsappResponse.success === true ||
-            whatsappResponse.statuscode === 200 ||
-            whatsappResponse.statuscode === 2000 ||
-            whatsappResponse.statusCode === 200
-          )) {
-            whatsappSent = true;
-            console.log('✅ WhatsApp sent successfully!');
-          } else {
-            console.warn('⚠️ WhatsApp API returned non-success status:', whatsappResponse);
-          }
-        } catch (waErr) {
-          const errDetail = waErr?.response?.data || { message: waErr.message, code: waErr.code };
-          console.error('❌ WhatsApp send error:', JSON.stringify(errDetail, null, 2));
-          whatsappResponse = errDetail;
         }
+        
+        const FormData = require('form-data');
+        const formData = new FormData();
+        formData.append('apikey', apiKey);
+        formData.append('mobile', mobileFormatted);
+        formData.append('templatename', templateName);
+        
+        // Template variables: 3-part message (info template format)
+        const templateVars = [
+          name + ', this is an official reminder about your upcoming interview. Please be available at the scheduled time.',
+          'Date and time: ' + dateTimeStr,
+          'Meeting link will be shared with you shortly.'
+        ];
+        console.log('   Variables:', templateVars);
+        
+        // Append each variable
+        templateVars.forEach((variable) => {
+          formData.append('dvariables', variable);
+        });
+
+        const response = await axios.post(whatsappApiUrl, formData, {
+          headers: formData.getHeaders(),
+          timeout: 30000
+        });
+
+        whatsappResponse = response.data;
+        console.log('✅ WhatsApp API Response:', JSON.stringify(whatsappResponse, null, 2));
+        
+        if (whatsappResponse && (
+          whatsappResponse.status === 'success' || 
+          whatsappResponse.success === true ||
+          whatsappResponse.statuscode === 200 ||
+          whatsappResponse.statuscode === 2000 ||
+          whatsappResponse.statusCode === 200
+        )) {
+          whatsappSent = true;
+          console.log('✅ Interview reminder sent successfully!');
+        } else {
+          console.warn('⚠️ WhatsApp API returned non-success status:', whatsappResponse);
+        }
+      } catch (waErr) {
+        const errDetail = waErr?.response?.data || { message: waErr.message, code: waErr.code };
+        console.error('❌ WhatsApp send error:', JSON.stringify(errDetail, null, 2));
+        whatsappResponse = errDetail;
       }
     }
 
